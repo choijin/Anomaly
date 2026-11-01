@@ -1,0 +1,50 @@
+resources:
+  jobs:
+    train_model:
+      name: metric-anomaly-${bundle.target}-train
+      max_concurrent_runs: 1
+      timeout_seconds: 3600
+      email_notifications:
+        on_failure: ${var.failure_emails}
+      parameters:
+        - name: train_start
+          default: ''
+        - name: train_end
+          default: ''
+        - name: calibration_end
+          default: ''
+        - name: evaluation_end
+          default: ''
+        - name: method
+          default: robust_zscore
+        - name: max_driver_rows
+          default: '100000'
+      tasks:
+        - task_key: train_and_register_candidate
+          existing_cluster_id: ${var.existing_cluster_id}
+          python_wheel_task:
+            package_name: metric_anomaly
+            entry_point: train_model
+            parameters:
+              - --catalog
+              - ${var.catalog}
+              - --schema
+              - ${var.schema}
+              - --experiment-path
+              - ${workspace.root_path}/training
+              - --train-start
+              - '{{job.parameters.train_start}}'
+              - --train-end
+              - '{{job.parameters.train_end}}'
+              - --calibration-end
+              - '{{job.parameters.calibration_end}}'
+              - --evaluation-end
+              - '{{job.parameters.evaluation_end}}'
+              - --method
+              - '{{job.parameters.method}}'
+              - --max-driver-rows
+              - '{{job.parameters.max_driver_rows}}'
+          libraries:
+            - whl: ../dist/*.whl
+            - pypi:
+                package: mlflow>=3.0,<4
