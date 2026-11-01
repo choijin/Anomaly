@@ -1,0 +1,8 @@
+{
+  "dataset": "NAB AWS CloudWatch EC2 CPU utilization",
+  "source_csv": "https://raw.githubusercontent.com/numenta/NAB/master/data/realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv",
+  "source_labels": "https://raw.githubusercontent.com/numenta/NAB/master/labels/combined_windows.json",
+  "raw_csv_sha256": "01613e6f632d067f11a5dfd40a188b0789752b388d9bc77a398bd06333878a76",
+  "timestamp_policy": "NAB timestamps have no offset; use UTC as a project storage convention, not verified source timezone.",
+  "data_source": "public_benchmark"
+}
