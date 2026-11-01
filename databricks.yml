@@ -1,0 +1,55 @@
+bundle:
+  name: metric-anomaly
+
+include:
+  - resources/*.yml
+
+artifacts:
+  python_package:
+    type: whl
+    path: .
+    build: uv build --wheel
+
+sync:
+  exclude:
+    - artifacts/**
+    - mlruns/**
+    - .venv/**
+    - '**/__pycache__/**'
+
+variables:
+  catalog:
+    description: Existing Unity Catalog catalog for model and Delta tables.
+  existing_cluster_id:
+    description: Existing Unity Catalog enabled ML cluster (Runtime 15.4 LTS or newer).
+  schema:
+    description: Separate schema for this environment.
+    default: metric_anomaly_dev
+  service_principal_id:
+    description: Production job run identity; required for the prod target.
+    default: ''
+  failure_emails:
+    description: Optional job failure notification recipients.
+    type: complex
+    default: []
+  scoring_schedule:
+    description: Set UNPAUSED after a champion and daily input data are available.
+    default: PAUSED
+
+targets:
+  dev:
+    default: true
+    mode: development
+    variables:
+      schema: metric_anomaly_dev
+  prod:
+    mode: production
+    workspace:
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+    run_as:
+      service_principal_name: ${var.service_principal_id}
+    permissions:
+      - service_principal_name: ${var.service_principal_id}
+        level: CAN_MANAGE
+    variables:
+      schema: metric_anomaly_prod
