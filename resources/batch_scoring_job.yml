@@ -1,0 +1,42 @@
+resources:
+  jobs:
+    score_batch:
+      name: metric-anomaly-${bundle.target}-score
+      max_concurrent_runs: 1
+      timeout_seconds: 3600
+      schedule:
+        quartz_cron_expression: '0 15 1 * * ?'
+        timezone_id: UTC
+        pause_status: ${var.scoring_schedule}
+      email_notifications:
+        on_failure: ${var.failure_emails}
+      parameters:
+        - name: start_time
+          default: ''
+        - name: end_time
+          default: ''
+        - name: model_alias
+          default: champion
+      tasks:
+        - task_key: score_and_monitor
+          existing_cluster_id: ${var.existing_cluster_id}
+          max_retries: 1
+          min_retry_interval_millis: 60000
+          python_wheel_task:
+            package_name: metric_anomaly
+            entry_point: score_batch
+            parameters:
+              - --catalog
+              - ${var.catalog}
+              - --schema
+              - ${var.schema}
+              - --model-alias
+              - '{{job.parameters.model_alias}}'
+              - --start-time
+              - '{{job.parameters.start_time}}'
+              - --end-time
+              - '{{job.parameters.end_time}}'
+          libraries:
+            - whl: ../dist/*.whl
+            - pypi:
+                package: mlflow>=3.0,<4
