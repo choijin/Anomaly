@@ -1,0 +1,26 @@
+# Benchmark data is available only in the development target.
+targets:
+  dev:
+    resources:
+      jobs:
+        load_data:
+          name: metric-anomaly-dev-load-data
+          max_concurrent_runs: 1
+          timeout_seconds: 1800
+          email_notifications:
+            on_failure: ${var.failure_emails}
+          tasks:
+            - task_key: load_benchmark_table
+              existing_cluster_id: ${var.existing_cluster_id}
+              python_wheel_task:
+                package_name: metric_anomaly
+                entry_point: load_data
+                parameters:
+                  - --catalog
+                  - ${var.catalog}
+                  - --schema
+                  - ${var.schema}
+              libraries:
+                - whl: ../dist/*.whl
+                - pypi:
+                    package: mlflow>=3.0,<4
