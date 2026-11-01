@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.egg-info/
+artifacts/
+.mplconfig/
+mlruns/
+.DS_Store
+.databricks/
+dist/
+build/
