@@ -1,0 +1,40 @@
+name: Test and package anomaly project
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@v6
+      - name: Install project and MLflow integration
+        run: uv sync --frozen --extra tracking
+      - name: Check contracts, model lifecycle, and causal alerts
+        run: uv run --frozen --extra tracking python -m unittest discover -s tests -v
+      - name: Run reproducible end-to-end pipeline and packaged-model parity check
+        run: uv run --frozen --extra tracking python -m metric_anomaly --output artifacts --track
+      - name: Build deployable wheel
+        run: uv build --wheel
+      - uses: actions/upload-artifact@v4
+        with:
+          name: metric-anomaly-wheel
+          path: dist/*.whl
+      - name: Preserve evaluation and monitoring reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: anomaly-reports
+          path: |
+            artifacts/*.json
+            artifacts/*.png
+            artifacts/*.csv
+            artifacts/*.md
