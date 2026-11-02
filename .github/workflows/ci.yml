@@ -1,4 +1,4 @@
-name: Test and package anomaly project
+name: Test and package MetroPT
 
 on:
   push:
@@ -15,26 +15,23 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.12'
       - uses: astral-sh/setup-uv@v6
-      - name: Install project and MLflow integration
-        run: uv sync --frozen --extra tracking
-      - name: Check contracts, model lifecycle, and causal alerts
-        run: uv run --frozen --extra tracking python -m unittest discover -s tests -v
-      - name: Run reproducible end-to-end pipeline and packaged-model parity check
-        run: uv run --frozen --extra tracking python -m metric_anomaly --output artifacts --track
-      - name: Build deployable wheel
+      - name: Install the locked environment
+        run: uv sync --frozen
+      - name: Verify Databricks requirements match the lockfile
+        run: |
+          generated_requirements="$(mktemp)"
+          checked_requirements="$(mktemp)"
+          uv export --frozen --no-dev --no-emit-project --no-hashes --emit-index-url --no-annotate --no-header --quiet --output-file "$generated_requirements"
+          sed '/^#/d' requirements/databricks.txt > "$checked_requirements"
+          diff -u "$checked_requirements" "$generated_requirements"
+          rm "$generated_requirements" "$checked_requirements"
+      - name: Verify temporal leakage, event metrics, models, and promotion rules
+        run: uv run --frozen pytest
+      - name: Build the deployable wheel
         run: uv build --wheel
       - uses: actions/upload-artifact@v4
         with:
-          name: metric-anomaly-wheel
+          name: metropt-wheel
           path: dist/*.whl
-      - name: Preserve evaluation and monitoring reports
-        uses: actions/upload-artifact@v4
-        with:
-          name: anomaly-reports
-          path: |
-            artifacts/*.json
-            artifacts/*.png
-            artifacts/*.csv
-            artifacts/*.md
