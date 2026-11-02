@@ -23,12 +23,11 @@ jobs:
           uv run --frozen metropt prepare
           uv run --frozen pytest
       - name: Run all three frozen experiments
-        run: uv run --frozen metropt run --output reports/runs/benchmark
+        run: uv run --frozen metropt run
       - uses: actions/upload-artifact@v4
         with:
           name: metropt-benchmark
           path: |
-            reports/*.md
-            reports/*.json
-            reports/*.png
-            reports/runs/benchmark/
+            reports/
+            artifacts/
+            mlruns/
