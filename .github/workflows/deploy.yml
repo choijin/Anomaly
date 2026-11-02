@@ -29,19 +29,20 @@ jobs:
       BUNDLE_VAR_catalog: ${{ vars.DATABRICKS_CATALOG }}
       BUNDLE_VAR_existing_cluster_id: ${{ vars.DATABRICKS_CLUSTER_ID }}
       BUNDLE_VAR_service_principal_id: ${{ vars.DATABRICKS_CLIENT_ID }}
+      BUNDLE_VAR_raw_data_path: ${{ vars.METROPT_RAW_DATA_PATH }}
       DEPLOY_TARGET: ${{ inputs.target }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
       - uses: astral-sh/setup-uv@v6
       - uses: databricks/setup-cli@main
-      - name: Check code before deployment
+      - name: Validate code before deployment
         run: |
-          uv sync --frozen --extra tracking
-          uv run --frozen --extra tracking python -m unittest discover -s tests -v
-      - name: Validate bundle
+          uv sync --frozen
+          uv run --frozen pytest
+      - name: Validate the configured workspace bundle
         run: databricks bundle validate --target "$DEPLOY_TARGET"
-      - name: Deploy jobs without starting training or promotion
+      - name: Deploy job definitions
         run: databricks bundle deploy --target "$DEPLOY_TARGET"
