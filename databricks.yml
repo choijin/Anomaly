@@ -13,8 +13,9 @@ artifacts:
 sync:
   exclude:
     - data/**
-    - reports/runs/**
-    - reports/*.db*
+    - artifacts/**
+    - mlruns/**
+    - reports/**
     - .venv/**
     - '**/__pycache__/**'
     - .pytest_cache/**
