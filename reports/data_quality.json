@@ -1,0 +1,90 @@
+{
+  "raw_rows": 1516948,
+  "snapshot_rows": 252719,
+  "raw_csv_sha256": "db30ccb4ea402e3c8bf2c99db06e288d4f2a772f6928f9dbe26a920d69793e24",
+  "expected_csv_sha256": "db30ccb4ea402e3c8bf2c99db06e288d4f2a772f6928f9dbe26a920d69793e24",
+  "config_digest": "818787a3aae54303730b2de74514bf440cbfade8dfd1bfbe5a432c68b3565675",
+  "first_timestamp": "2020-02-01 00:00:00",
+  "last_timestamp": "2020-09-01 03:59:50",
+  "missing_values": 0,
+  "duplicate_timestamps": 0,
+  "median_sampling_seconds": 10.0,
+  "sampling_seconds_percentiles": {
+    "0.01": 9.0,
+    "0.5": 10.0,
+    "0.9": 10.0,
+    "0.99": 12.0
+  },
+  "maximum_gap_seconds": 172918.0,
+  "raw_gaps_over_90_seconds": 331,
+  "snapshot_segments": 332,
+  "digital_values": {
+    "COMP": [
+      0.0,
+      1.0
+    ],
+    "DV_eletric": [
+      0.0,
+      1.0
+    ],
+    "Towers": [
+      0.0,
+      1.0
+    ],
+    "MPG": [
+      0.0,
+      1.0
+    ],
+    "LPS": [
+      0.0,
+      1.0
+    ],
+    "Pressure_switch": [
+      0.0,
+      1.0
+    ],
+    "Oil_level": [
+      0.0,
+      1.0
+    ],
+    "Caudal_impulses": [
+      0.0,
+      1.0
+    ]
+  },
+  "constant_signals_in_training": [
+    "LPS",
+    "Oil_level",
+    "Caudal_impulses"
+  ],
+  "timezone": "unspecified source clock; no UTC conversion",
+  "sampling_discrepancy": "UCI reports 1 Hz and 0.1 Hz; observed median is 10 seconds",
+  "unexpected_endpoint": "CSV ends on 2020-09-01 03:59:50, beyond the February-August description",
+  "normality_assumption": "February is assumed normal under UCI's recommendation; other unreported periods are unknown",
+  "splits": {
+    "train": {
+      "rows": 27902,
+      "start": "2020-02-01 00:00:00",
+      "end": "2020-02-22 23:59:00",
+      "reported_failure_rows": 0
+    },
+    "normal_development": {
+      "rows": 7625,
+      "start": "2020-02-23 00:00:00",
+      "end": "2020-02-28 23:58:00",
+      "reported_failure_rows": 0
+    },
+    "validation": {
+      "rows": 124351,
+      "start": "2020-03-01 04:01:00",
+      "end": "2020-06-14 23:55:00",
+      "reported_failure_rows": 4691
+    },
+    "test": {
+      "rows": 92841,
+      "start": "2020-06-15 00:59:00",
+      "end": "2020-09-01 04:00:00",
+      "reported_failure_rows": 270
+    }
+  }
+}
