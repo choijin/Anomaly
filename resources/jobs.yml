@@ -1,0 +1,132 @@
+resources:
+  jobs:
+    load_data:
+      name: metropt-load-data-${bundle.target}
+      max_concurrent_runs: 1
+      email_notifications:
+        on_failure: ${var.failure_emails}
+      tasks:
+        - task_key: load_data
+          existing_cluster_id: ${var.existing_cluster_id}
+          timeout_seconds: 3600
+          max_retries: 0
+          python_wheel_task:
+            package_name: metropt_anomaly_detection
+            entry_point: load_data
+            parameters:
+              - --catalog
+              - ${var.catalog}
+              - --schema
+              - ${var.schema}
+              - --config
+              - ${workspace.file_path}/configs/experiments.yaml
+              - --raw-path
+              - ${var.raw_data_path}
+          libraries:
+            - requirements: ${workspace.file_path}/requirements/databricks.txt
+            - whl: ../dist/*.whl
+    train_model:
+      name: metropt-train-model-${bundle.target}
+      max_concurrent_runs: 1
+      email_notifications:
+        on_failure: ${var.failure_emails}
+      tasks:
+        - task_key: train_model
+          existing_cluster_id: ${var.existing_cluster_id}
+          timeout_seconds: 7200
+          max_retries: 0
+          python_wheel_task:
+            package_name: metropt_anomaly_detection
+            entry_point: train_model
+            parameters:
+              - --catalog
+              - ${var.catalog}
+              - --schema
+              - ${var.schema}
+              - --config
+              - ${workspace.file_path}/configs/experiments.yaml
+              - --experiment-path
+              - ${workspace.root_path}/metropt-experiments
+          libraries:
+            - requirements: ${workspace.file_path}/requirements/databricks.txt
+            - whl: ../dist/*.whl
+    score_batch:
+      name: metropt-score-batch-${bundle.target}
+      max_concurrent_runs: 1
+      parameters:
+        - name: start
+          default: '2020-06-15 00:00:00'
+        - name: end
+          default: '2020-09-02 00:00:00'
+        - name: replay_start
+          default: '2020-06-15 00:00:00'
+        - name: source_version
+          default: '0'
+        - name: model_alias
+          default: champion
+      email_notifications:
+        on_failure: ${var.failure_emails}
+      tasks:
+        - task_key: score_batch
+          existing_cluster_id: ${var.existing_cluster_id}
+          timeout_seconds: 3600
+          max_retries: 1
+          python_wheel_task:
+            package_name: metropt_anomaly_detection
+            entry_point: score_batch
+            parameters:
+              - --catalog
+              - ${var.catalog}
+              - --schema
+              - ${var.schema}
+              - --config
+              - ${workspace.file_path}/configs/experiments.yaml
+              - --start
+              - '{{job.parameters.start}}'
+              - --end
+              - '{{job.parameters.end}}'
+              - --replay-start
+              - '{{job.parameters.replay_start}}'
+              - --source-version
+              - '{{job.parameters.source_version}}'
+              - --model-alias
+              - '{{job.parameters.model_alias}}'
+          libraries:
+            - requirements: ${workspace.file_path}/requirements/databricks.txt
+            - whl: ../dist/*.whl
+    promote_model:
+      name: metropt-promote-model-${bundle.target}
+      max_concurrent_runs: 1
+      parameters:
+        - name: source_model
+          default: ''
+        - name: source_version
+          default: ''
+        - name: approval_reference
+          default: ''
+        - name: allow_benchmark
+          default: 'false'
+      email_notifications:
+        on_failure: ${var.failure_emails}
+      tasks:
+        - task_key: promote_model
+          existing_cluster_id: ${var.existing_cluster_id}
+          timeout_seconds: 1800
+          max_retries: 0
+          python_wheel_task:
+            package_name: metropt_anomaly_detection
+            entry_point: promote_model
+            parameters:
+              - --source-model
+              - '{{job.parameters.source_model}}'
+              - --source-version
+              - '{{job.parameters.source_version}}'
+              - --target-model
+              - ${var.catalog}.${var.schema}.compressor_anomaly
+              - --approval-reference
+              - '{{job.parameters.approval_reference}}'
+              - --allow-benchmark
+              - '{{job.parameters.allow_benchmark}}'
+          libraries:
+            - requirements: ${workspace.file_path}/requirements/databricks.txt
+            - whl: ../dist/*.whl
