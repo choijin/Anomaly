@@ -1,0 +1,34 @@
+name: Reproduce the full MetroPT benchmark
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+      - run: uv run --frozen metropt download
+      - name: Inspect and verify the data/evaluation foundations
+        run: |
+          uv run --frozen metropt prepare
+          uv run --frozen pytest
+      - name: Run all three frozen experiments
+        run: uv run --frozen metropt run --output reports/runs/benchmark
+      - uses: actions/upload-artifact@v4
+        with:
+          name: metropt-benchmark
+          path: |
+            reports/*.md
+            reports/*.json
+            reports/*.png
+            reports/runs/benchmark/
