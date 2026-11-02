@@ -1,4 +1,4 @@
-name: Promote reviewed model to production
+name: Promote a reviewed production model
 
 on:
   workflow_dispatch:
@@ -11,8 +11,8 @@ on:
         description: Explicit validated model version
         type: string
         required: true
-      approval_ticket:
-        description: Approved change or maintenance review reference
+      approval_reference:
+        description: Approved operational review or change reference
         type: string
         required: true
 
@@ -37,12 +37,12 @@ jobs:
       BUNDLE_VAR_service_principal_id: ${{ vars.DATABRICKS_CLIENT_ID }}
       SOURCE_MODEL: ${{ inputs.source_model }}
       SOURCE_VERSION: ${{ inputs.source_version }}
-      APPROVAL_TICKET: ${{ inputs.approval_ticket }}
+      APPROVAL_REFERENCE: ${{ inputs.approval_reference }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
       - uses: astral-sh/setup-uv@v6
       - uses: databricks/setup-cli@main
       - name: Check explicit promotion inputs
@@ -51,13 +51,13 @@ jobs:
           import os
           import re
           assert re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*', os.environ['SOURCE_MODEL']), 'Use catalog.schema.model'
-          assert os.environ['SOURCE_VERSION'].isdigit(), 'Use an explicit numeric version'
-          assert os.environ['APPROVAL_TICKET'].strip(), 'Approval reference is required'
-          assert ',' not in os.environ['APPROVAL_TICKET'], 'Approval reference cannot contain a comma'
+          assert os.environ['SOURCE_VERSION'].isdigit() and int(os.environ['SOURCE_VERSION']) > 0, 'Use an explicit positive version'
+          assert os.environ['APPROVAL_REFERENCE'].strip(), 'Approval reference is required'
+          assert ',' not in os.environ['APPROVAL_REFERENCE'], 'Approval reference cannot contain a comma'
           PY
-      - name: Build wheel referenced by the bundle configuration
+      - name: Build the wheel referenced by the bundle
         run: uv build --wheel
       - name: Promote through the deployed production job
         run: >-
           databricks bundle run --target prod promote_model
-          --params "source_model=$SOURCE_MODEL,source_version=$SOURCE_VERSION,approval_ticket=$APPROVAL_TICKET"
+          --params "source_model=$SOURCE_MODEL,source_version=$SOURCE_VERSION,approval_reference=$APPROVAL_REFERENCE,allow_benchmark=false"
