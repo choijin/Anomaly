@@ -1,18 +1,18 @@
-# MetroPT-3 results
+# Results
 
-Validation selected **CNN autoencoder**. Promotion is **blocked**.
+Validation selected **CNN autoencoder**. Release is **blocked**.
 
 ## Validation
 
-| Model | Events detected | Unmatched alerts/day | Threshold |
+| Model | Events found | Unmatched alerts/day | Threshold |
 |---|---:|---:|---:|
-| IF raw | 3/3 | 0.961 | 0.735811 |
-| IF temporal | 2/3 | 0.910 | 0.675077 |
-| CNN autoencoder | 3/3 | 0.628 | 32.518625 |
+| IF raw | 3/3 | 0.961 | 0.74 |
+| IF temporal | 2/3 | 0.910 | 0.68 |
+| CNN autoencoder | 3/3 | 0.628 | 32.52 |
 
-Selection prefers event recall, then fewer unmatched alerts, then simpler models. Thresholds share a 1-unmatched-alert/day ceiling, 2min persistence and 30min cooldown. Selection and thresholds were saved before test scoring.
+Thresholds used validation only, with a 1-unmatched-alert/day ceiling, 2min persistence, and 30min cooldown.
 
-## Held-out test
+## Test
 
 | Metric | IF raw | IF temporal | CNN autoencoder |
 |---|---:|---:|---:|
@@ -22,34 +22,10 @@ Selection prefers event recall, then fewer unmatched alerts, then simpler models
 | PR-AUC | 0.285 | 0.022 | 0.380 |
 | Point precision | 0.442 | 0.008 | 0.000 |
 | Point recall | 0.346 | 0.005 | 0.000 |
-| Inference ms/input row | 0.005 | 0.019 | 0.054 |
+| Inference ms/row | 0.005 | 0.019 | 0.054 |
 
-Latency includes preprocessing and alert rules for the same CPU batch. Delay is defined only for detected events. Row metrics use incomplete interval-derived labels.
+Scored event coverage: F4: 78%. Delay is measured after onset for detected events. Latency is a CPU batch average including preprocessing and alert rules.
 
-| Model | Event | First alert | Delay, min | Scored coverage | Six-hour prewarning |
-|---|---|---|---:|---:|---|
-| IF raw | F4 | 2020-07-15T16:48:00 | 138.0 | 0.779 | no |
-| IF temporal | F4 | none | n/a | 0.779 | no |
-| CNN autoencoder | F4 | none | n/a | 0.779 | no |
+The CNN threshold was **32.52**, against a highest test score of **11.29** (8.83 during reported failures). It produced no test alerts. Its PR-AUC was 0.380 versus 0.285 for raw IF; ranking and alert-threshold performance are different measures.
 
-## CNN threshold and ranking
-
-The CNN threshold was **32.52**. Its largest test score was **11.29**; the largest score during reported failures was **8.83**. No test score crossed the threshold, so it produced no test alerts.
-
-The CNN's test PR-AUC was 0.380, compared with 0.285 for raw Isolation Forest. Ranking quality and alert performance must be assessed separately. Three validation events provide limited evidence about a later failure. This run does not isolate the causes of the score shift.
-
-The selected candidate remains on hold. Choosing a replacement or lowering its threshold using this test would require a new independent assessment.
-
-## Limits
-
-- One asset, three validation events, and one test event.
-- February is assumed normal; other unreported periods remain unknown.
-- Unmatched alerts are not verified false positives. PR-AUC and point metrics are proxies.
-- Minute snapshots can miss short transients; gaps and warm-up reduce coverage.
-- Detection after onset is not advance warning.
-
-Data and split details are in `docs/data.md`. Model settings are in `configs/experiments.yaml`; `uv.lock` pins dependencies.
-
-## Temporal-feature diagnostic
-
-Largest validation score changes under grouped permutation: H1 (0.0214), TP2 (0.0195), DV_pressure (0.0178). These are perturbation sensitivities, not causal importance or a window-length ablation.
+One asset and four events limit what this comparison can establish. Unreported periods are unknown, so unmatched alerts and row metrics are proxies. Test results were not used to switch models or retune thresholds.
