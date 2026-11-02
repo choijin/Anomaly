@@ -8,3 +8,9 @@ mlruns/
 .databricks/
 dist/
 build/
+data/raw/
+data/processed/
+reports/runs/
+reports/*.db*
+.pytest_cache/
+.uv-cache/
