@@ -1,5 +1,5 @@
 bundle:
-  name: metric-anomaly
+  name: metropt-anomaly-detection
 
 include:
   - resources/*.yml
@@ -12,36 +12,38 @@ artifacts:
 
 sync:
   exclude:
-    - artifacts/**
-    - mlruns/**
+    - data/**
+    - reports/runs/**
+    - reports/*.db*
     - .venv/**
     - '**/__pycache__/**'
+    - .pytest_cache/**
 
 variables:
   catalog:
-    description: Existing Unity Catalog catalog for model and Delta tables.
+    description: Existing Unity Catalog catalog.
   existing_cluster_id:
-    description: Existing Unity Catalog enabled ML cluster (Runtime 15.4 LTS or newer).
+    description: Existing Unity Catalog enabled ML cluster, Python 3.12 / Runtime 16.4 LTS ML or compatible.
   schema:
-    description: Separate schema for this environment.
-    default: metric_anomaly_dev
+    description: Separate model and table namespace per environment.
+    default: metropt_dev
+  raw_data_path:
+    description: Uploaded MetroPT-3 CSV in an existing Unity Catalog Volume; set before running load_data.
+    default: /Volumes/CHANGE_ME/CHANGE_ME/CHANGE_ME/MetroPT3(AirCompressor).csv
   service_principal_id:
-    description: Production job run identity; required for the prod target.
+    description: Production job identity; required for prod deployment.
     default: ''
   failure_emails:
     description: Optional job failure notification recipients.
     type: complex
     default: []
-  scoring_schedule:
-    description: Set UNPAUSED after a champion and daily input data are available.
-    default: PAUSED
 
 targets:
   dev:
     default: true
     mode: development
     variables:
-      schema: metric_anomaly_dev
+      schema: metropt_dev
   prod:
     mode: production
     workspace:
@@ -52,4 +54,4 @@ targets:
       - service_principal_name: ${var.service_principal_id}
         level: CAN_MANAGE
     variables:
-      schema: metric_anomaly_prod
+      schema: metropt_prod
