@@ -1,36 +1,21 @@
--- Select the environment's catalog/schema in the SQL editor first.
-
--- Operational health and exact model/data versions for each batch.
+-- Replace YOUR_CATALOG and metropt_dev before running in a SQL warehouse.
+-- Unmatched alerts are not confirmed failures. This table contains operational
+-- telemetry, not accuracy: maintenance-reviewed labels are required for that.
 SELECT
-  window_start,
-  window_end,
-  model_name,
-  model_version,
-  source_table_version,
-  row_count,
-  point_flag_rate,
-  alert_count,
-  max_mean_shift,
-  data_lag_minutes,
-  quality_status,
-  drift_review,
-  status
-FROM batch_monitoring
-ORDER BY window_start DESC
-LIMIT 30;
-
--- Alert volume by series and UTC day.
-SELECT
-  DATE(timestamp) AS alert_date,
-  series_id,
-  COUNT(*) AS alert_episodes
-FROM metric_alerts
-WHERE alert_started
-GROUP BY DATE(timestamp), series_id
-ORDER BY alert_date DESC, series_id;
-
--- Ingestion freshness is separate from a backfill's scoring window.
-SELECT
-  MAX(timestamp) AS latest_metric_timestamp,
-  TIMESTAMPDIFF(MINUTE, MAX(timestamp), CURRENT_TIMESTAMP()) AS ingestion_lag_minutes
-FROM metric_readings;
+  batch_id,
+  get_json_object(metrics_json, '$.start') AS batch_start,
+  get_json_object(metrics_json, '$.end') AS batch_end,
+  get_json_object(metrics_json, '$.model_version') AS model_version,
+  CAST(get_json_object(metrics_json, '$.row_count') AS BIGINT) AS row_count,
+  CAST(get_json_object(metrics_json, '$.null_count') AS BIGINT) AS null_count,
+  CAST(get_json_object(metrics_json, '$.gap_count') AS BIGINT) AS gap_count,
+  CAST(get_json_object(metrics_json, '$.scorable_count') AS BIGINT) AS scorable_count,
+  CAST(get_json_object(metrics_json, '$.unscorable_fraction') AS DOUBLE) AS unscorable_fraction,
+  CAST(get_json_object(metrics_json, '$.alert_count') AS BIGINT) AS alert_count,
+  CAST(get_json_object(metrics_json, '$.alert_fraction') AS DOUBLE) AS alert_fraction,
+  CAST(get_json_object(metrics_json, '$.inference_ms_per_row') AS DOUBLE) AS inference_ms_per_row,
+  CAST(get_json_object(metrics_json, '$.max_mean_shift') AS DOUBLE) AS max_mean_shift,
+  CAST(get_json_object(metrics_json, '$.drift_review') AS BOOLEAN) AS drift_review,
+  CAST(get_json_object(metrics_json, '$.quality_passed') AS BOOLEAN) AS quality_passed
+FROM YOUR_CATALOG.metropt_dev.anomaly_monitoring
+ORDER BY batch_start DESC;
