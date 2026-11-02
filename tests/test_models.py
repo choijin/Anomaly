@@ -94,7 +94,11 @@ def test_autoencoder_training_inference_and_feature_errors_are_reproducible():
     assert errors.shape == (len(development_endpoints), 15)
     assert np.isfinite(scores).all()
     np.testing.assert_allclose(
-        scores, (errors[:, :7].mean(axis=1) + errors[:, 7:].mean(axis=1)) / 2
+        scores,
+        (errors[:, :7].mean(axis=1) + errors[:, 7:].mean(axis=1)) / 2,
+        # Torch and NumPy float32 reductions can differ by a few rounding units.
+        rtol=1e-6,
+        atol=1e-7,
     )
     np.testing.assert_allclose(
         scores, second.score(development, development_endpoints), rtol=0, atol=0
