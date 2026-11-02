@@ -1,35 +1,60 @@
-# Interview walkthrough
+# Project walkthrough
 
-## A short pitch
+## Overview
 
-> I built an anomaly-detection delivery pipeline around public AWS CloudWatch CPU data from NAB. I compared Isolation Forest with a robust z-score baseline using chronological training, calibration and evaluation windows. I packaged inference with MLflow and supplied Databricks jobs for training, governed promotion, scoring and monitoring.
->
-> The real-data results were weak: the baseline caught one of two benchmark windows with excessive false alerts. I kept that result and made sure the model could not pass the release gate. Passing software tests and producing a model artifact do not establish that a model should serve production traffic.
->
-> Local execution, serialization and release guards are tested. Databricks deployment, AutoML and Model Serving still need workspace execution. I would not claim production impact or hands-on cloud execution from this project alone.
+I compared two Isolation Forest configurations and a small CNN autoencoder on
+MetroPT-3 compressor telemetry. The models learn from an assumed-normal period;
+maintenance reports support event-based evaluation. I used chronological splits,
+train-only preprocessing, causal features, and explicit handling of data gaps.
 
-## Five-minute demo
+I tracked each experiment in MLflow and packaged the model with its features,
+scaler, threshold, and alert policy. The Databricks batch workflow includes Delta
+versions, Unity Catalog registration, controlled promotion, and monitoring.
+Local execution is verified; Databricks deployment still needs a workspace.
 
-1. Run `python -m metric_anomaly --track` after installing the tracking extra.
-2. Open `artifacts/report.png`: raw CPU values, background/evaluation boundaries, published windows and alert starts.
-3. Show `metrics.json` and the model rejection. Explain that NAB windows are broad annotations; point metrics are approximate and these metrics are not official NAB scoring.
-4. Show the MLflow run: input snapshots, parameters, metrics, signature, model artifact and reload parity.
-5. Walk through `train_model.py`, `promote_model.py`, and `score_batch.py`. Explain version pinning, Delta upserts, mean-shift/volume monitoring and rollback.
+## Why did the CNN miss the test event?
 
-## Questions to prepare for
+It detected 3/3 validation events with 0.628 unmatched alerts/day, compared with
+0.961 for raw Isolation Forest. That determined the model selection.
 
-**Why these algorithms?** A robust z-score measures distance from a training median in robust scale units. Isolation Forest isolates unusual observations using random partitions. Both are simple stateless value detectors; they can miss anomalies involving temporal patterns or variance rather than individual levels.
+The CNN threshold was 32.52. Its July-event scores reached 8.83, and the maximum
+across the entire test period was 11.29. Consequently it emitted no test alerts.
+Its test PR-AUC was nevertheless 0.380 versus 0.285 for raw Isolation Forest:
+ranking readings and choosing a working alert threshold are different problems.
 
-**How did you prevent leakage?** Time splits precede fitting. Training learns the model/statistics; later background calibration determines the threshold; the final period evaluates it. Labels never become features. Changing the design after examining results requires another untouched final dataset.
+The three validation events did not provide a representative calibration for
+July. Operating-state changes and limited training variety may contribute, but
+this experiment does not isolate their causes. The result does not prove that
+CNNs are generally inferior. It shows that this model and threshold failed to
+transfer to the held-out event. I kept the result and blocked promotion rather
+than selecting another model using test performance.
 
-**How were alerts evaluated?** Two flags among three consecutive readings start an alert episode, separately per series. Gaps reset history. A benchmark window is detected only if an episode starts inside it. Delay is measured from the annotated window start, not before a failure. False alerts count episode starts outside windows per observed normal series-day.
+## Modeling choices
 
-**Why does CI pass when the model is rejected?** CI tests code and packaging contracts. The model evaluation checks whether predictive behavior is acceptable. A separate approval step checks evaluation and provenance before changing the champion. This separates a valid software release from a valid model release.
+- **Isolation Forest:** randomized partitions isolate unusual readings in fewer
+  splits. Negated `score_samples` makes larger scores more anomalous.
+- **Temporal features:** add rolling levels, variability, deviations, extremes,
+  differences, and slopes over 1, 5, and 15 minutes. They did not improve this run.
+- **CNN:** reconstructs multivariate sequences using continuous-channel MSE and
+  binary-channel cross entropy. Scaling fits training only; early stopping uses
+  a separate normal period. More complexity does not guarantee better detection.
 
-**How does Databricks fit?** A wheel bundle supplies development and production jobs. Training pins Delta data and records MLflow lineage. Unity Catalog holds evaluated candidates; approval controls the champion alias. Batch scoring resolves one immutable model version and writes versioned predictions, alert decisions and monitoring to Delta. These paths await cloud execution.
+## Engineering decisions
 
-**What is the main limitation?** One short series and two broad windows cannot establish general reliability. The current one-value models perform poorly, and the short calibration period does not maintain its target flag rate on later data. More independent data and temporal features are possible follow-up work, not demonstrated improvements.
+- Package preprocessing and alert rules with weights to keep training and batch
+  inference consistent. Reload checks compare scores and alerts.
+- Pin the Delta snapshot and resolve the model alias once per batch. Replay from
+  a fixed session start so rolling history and cooldown remain consistent.
+- Keep software deployment separate from model promotion. A passing CI job does
+  not mean the model meets detection requirements.
+- Monitor schema, missing data, gaps, warm-up coverage, drift, latency, and alert
+  counts. Measuring accuracy requires reviewed maintenance events.
+- For many assets, replace full-history replay with persisted per-asset state.
+  A serving endpoint would need ordered context or a state service.
 
-**What about AutoML and serving?** Optional notebooks are included. AutoML is a supervised challenger once enough trustworthy labels exist; this benchmark is too small for sound chronological classification. A serving endpoint is useful for request-time scores, while the current use case is periodic batch scoring.
+## Limits
 
-**How would you operate it?** Monitor input quality, freshness, flag/alert volume and distribution changes. Investigate before retraining. Keep data/model versions on outputs, require reviewed promotion, and restore a previous approved champion during an incident. See [operations](operations.md).
+One held-out event cannot establish general performance. Unreported periods
+are unknown, and unmatched alerts are not confirmed false positives. Raw
+Isolation Forest detected July's event after 138 minutes; that is detection,
+not early warning. AutoML is outside this project's implemented scope.
