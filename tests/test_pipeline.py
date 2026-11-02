@@ -94,7 +94,7 @@ def test_three_experiments_log_reload_and_select_before_test(tmp_path):
         frame[column] = rng.integers(0, 2, size=len(frame)).astype(float)
     frame.loc[540:599, SENSOR_COLUMNS[:7]] += 5
     frame.loc[780:839, SENSOR_COLUMNS[:7]] += 5
-    uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
+    uri = f"sqlite:///{tmp_path / 'tracking' / 'mlflow.db'}"
     output = tmp_path / "run"
     summary = run_experiments(
         frame, config, output, tracking_uri=uri, experiment_name="integration"
@@ -128,11 +128,14 @@ def test_three_experiments_log_reload_and_select_before_test(tmp_path):
     np.testing.assert_array_equal(actual.is_alert, expected.is_alert)
     assert (output / "report.md").is_file()
     published = tmp_path / "published"
-    publish_results(summary, output, published)
-    portable = json.loads((published / "benchmark_results.json").read_text())
+    evaluation = tmp_path / "evaluation"
+    publish_results(summary, output, published, evaluation)
+    portable = json.loads((evaluation / "benchmark_results.json").read_text())
     assert portable["selected_model"] == summary["selected_model"]
     assert "model_uri" not in portable and "selected_model_path" not in portable
     assert "run_id" not in portable["per_model"][summary["selected_model"]]
     assert (published / "model_comparison.md").read_text() == (
         output / "report.md"
     ).read_text()
+    assert (published / "figures" / "failure_zoom.png").is_file()
+    assert not list(published.glob("*.json")) and not list(published.glob("*.csv"))
