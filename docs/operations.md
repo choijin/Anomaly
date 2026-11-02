@@ -1,38 +1,57 @@
-# Operate the pipeline
+# Operations
 
-## Release
+## Build and release
 
-1. Run software tests and build the wheel. Deploy development jobs.
-2. Train on explicit chronological windows. Inspect MLflow evaluation and data lineage. The registered candidate carries its evaluation outcome; registration is not approval.
-3. Score `model_alias=candidate` in development for inspection. The supplied benchmark models fail the example recall/false-alert gates and must not be promoted.
-4. For a genuinely validated model, use the protected promotion workflow with its exact version and approval reference. The job records the previous champion and updates the alias last.
-5. Score one production batch, inspect outputs, configure failure notifications, then enable the paused daily schedule.
+CI installs `uv.lock`, verifies the exported Databricks requirements, runs tests,
+and builds a wheel. The manual benchmark workflow downloads the data and runs
+all three experiments. Deployment and model promotion are separate workflows.
 
-Production requires passing validation and `data_source=reviewed_real`, substantiated by data review. The public benchmark cannot be relabeled into production evidence. Model/Job ownership and protected GitHub environments enforce who can approve releases.
+Training runs in development against a pinned Delta snapshot. It logs MLflow
+runs, freezes validation selection, evaluates test, and registers the selected
+artifact as `candidate`. Promotion requires:
 
-## Recover a scoring batch
+- An explicit version and approval reference.
+- Passing validation metrics and `release_blocked=false`.
+- A matching configuration digest and retained source lineage.
+- Site-reviewed provenance for production; public benchmarks are development-only.
 
-Start with the Databricks job exception and `batch_monitoring`. A missing/unapproved champion can fail before a monitoring row is created.
+The current CNN candidate missed July's event and cannot become `champion`.
+A missing release-review outcome also blocks promotion. The alias changes last,
+after all checks and audit tags succeed.
 
-- Invalid input or duplicates: repair upstream data and rerun the same window.
-- Partial output writes: rerun the window. Delta upserts prevent duplicate keys; consume only successful batches. Writes to separate tables are not one transaction.
-- Late/corrected readings: replay the affected interval and the following 15 minutes to refresh alert boundary decisions. Source deletions need explicit output reconciliation; upserts do not delete missing rows.
-- Drift or excess alerts: review input distributions and operational context. The mean-shift heuristic alone does not detect every kind of drift. No automatic retraining or champion changes occur.
+GitHub deployment uses `dev`/`prod` environments and OIDC. Configure
+`DATABRICKS_HOST`, `DATABRICKS_CLIENT_ID`, `DATABRICKS_CATALOG`,
+`DATABRICKS_CLUSTER_ID`, and `METROPT_RAW_DATA_PATH`; require reviewers for `prod`.
+See [Databricks setup](../databricks/README.md).
 
-`data_lag_minutes` measures freshness relative to a batch's window end. `databricks/monitoring.sql` separately checks current ingestion freshness; the historical benchmark is intentionally stale by today's clock.
+## Inference contract
 
-## Roll back
+Input is one asset's ordered minute snapshots: `timestamp`, integer `segment_id`,
+and the 15 sensors. Timestamps use the source clock; digital values must be 0/1.
+Gaps reset feature windows and alert persistence. Cooldown retains the last
+notification time. Warm-up rows return no score and `is_scorable=false`.
 
-Under a reviewed change, stop new scoring runs, inspect the champion's `previous_champion_version` tag and restore that explicit known-good version:
+A request reads `[replay_start, end)` and emits `[start, end)`. Keep the same
+replay anchor across batches; an arbitrary hour of history can change cooldown
+phase. Delta and model versions are fixed for the request. Retry writes merge
+on batch ID and timestamp. Overlapping requests retain their own batch IDs.
 
-```python
-import mlflow
-from mlflow import MlflowClient
-mlflow.set_registry_uri("databricks-uc")
-client = MlflowClient()
-model_name = "YOUR_CATALOG.metric_anomaly_prod.metric_anomaly"
-current = client.get_model_version_by_alias(model_name, "champion")
-client.set_registered_model_alias(model_name, "champion", current.tags["previous_champion_version"])
-```
+Scoring runs on one driver with a 500,000-row bound. Larger deployments should
+persist rolling, sequence, and alert state per asset. Scheduling requires ingestion
+watermarks and an explicit source version; this historical benchmark has no schedule.
 
-In-flight batches remain pinned to their original model. Rerun affected windows as needed; downstream consumers must choose the approved model version. A Model Serving endpoint needs its own version update after an alias change.
+## Monitoring and incidents
+
+Successful batches write versioned predictions and monitoring JSON to Delta.
+Check schema failures, nonfinite inputs, gaps, unscorable coverage, mean shifts,
+changes in previously constant sensors, latency, and alert volume. Invalid input
+fails the job; logs and configured failure emails provide the failure record.
+[monitoring.sql](../databricks/monitoring.sql) queries the batch metrics.
+
+For an alert increase, check ingestion and gaps first, then operating states and
+drift against the training reference. Request maintenance review before changing
+thresholds or retraining. Drift and alert counts do not establish model accuracy.
+
+To roll back, promote the recorded `previous_champion_version` with an explicit
+rollback approval reference. Record the incident and replay the affected batch
+against its original Delta version using the restored model.
