@@ -1,9 +1,9 @@
 # MetroPT-3 anomaly detection
 
-Three anomaly detectors for [MetroPT-3 compressor telemetry](https://archive.ics.uci.edu/dataset/791/metropt+3+dataset):
-raw Isolation Forest, Isolation Forest with rolling features, and a CNN autoencoder.
-Models train on February's assumed-normal readings; maintenance reports provide
-four failure windows for evaluation.
+This project uses the [MetroPT-3 compressor dataset](https://archive.ics.uci.edu/dataset/791/metropt+3+dataset)
+to develop and compare three anomaly detectors: Isolation Forest, Isolation Forest
+with rolling features, and a CNN autoencoder. I trained them on February's
+assumed-normal readings and used four reported failures to evaluate them.
 
 ## Results
 
@@ -13,16 +13,15 @@ four failure windows for evaluation.
 | Isolation Forest + rolling features | 2/3 | 0/1 |
 | CNN autoencoder | 3/3 | 0/1 |
 
-Validation selected the CNN for fewer unmatched alerts. Its threshold was too
-high for July's failure, so release is blocked. Raw Isolation Forest detected
-that event 138 minutes after onset. Models and thresholds were not changed using
-test results.
+I selected the CNN for fewer unmatched validation alerts, but kept release blocked
+after it missed July's failure. Although raw Isolation Forest caught that event
+138 minutes after onset, I kept the original model choice and thresholds.
 
 [Full results](reports/model_comparison.md) · [Failure plot](reports/figures/failure_zoom.png)
 
 ## Run
 
-Python 3.12 and [uv](https://docs.astral.sh/uv/):
+Run this with Python 3.12 and [uv](https://docs.astral.sh/uv/):
 
 ```bash
 uv sync --frozen
@@ -32,7 +31,7 @@ uv run pytest
 uv run metropt run
 ```
 
-Settings are in [configs/experiments.yaml](configs/experiments.yaml).
+Settings are in [configs/experiments.yaml](configs/experiments.yaml), with outputs organized here:
 
 ```text
 data/                  downloaded and prepared sensor readings
@@ -43,9 +42,8 @@ mlruns/                MLflow database and model storage (not committed)
 reports/               readable results and figures
 ```
 
-Databricks jobs cover training, registration, batch scoring, monitoring, and
-reviewed promotion. They have not run in a workspace. AutoML and Model Serving
-are outside the implemented scope.
+I've configured Databricks training and batch deployment, but haven't run it
+in a workspace yet. AutoML and Model Serving aren't included.
 
 [Data notes](docs/data.md) · [Model choices](docs/decisions.md) ·
 [Local operation](docs/operations.md) · [Databricks setup](databricks/README.md)
