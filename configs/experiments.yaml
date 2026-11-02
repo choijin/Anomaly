@@ -1,0 +1,56 @@
+project: metropt-anomaly-detection
+seed: 42
+data:
+  raw_path: data/raw/MetroPT3(AirCompressor).csv
+  processed_path: data/processed/observations.parquet
+  resample_rule: 1min
+  max_gap: 90s
+  expected_cadence: 1min
+  source_timezone: unspecified
+splits:
+  train: {start: '2020-02-01', end: '2020-02-23'}
+  normal_development: {start: '2020-02-23', end: '2020-03-01'}
+  validation: {start: '2020-03-01', end: '2020-06-15'}
+  test: {start: '2020-06-15', end: '2020-09-02'}
+trusted_normal_intervals:
+  - {start: '2020-02-01', end: '2020-03-01'}
+failure_events:
+  - {event_id: F1, start: '2020-04-18 00:00', end: '2020-04-19 00:00', description: Air leak}
+  - {event_id: F2, start: '2020-05-29 23:30', end: '2020-05-30 06:01', description: Air leak}
+  - {event_id: F3, start: '2020-06-05 10:00', end: '2020-06-07 14:31', description: Air leak}
+  - {event_id: F4, start: '2020-07-15 14:30', end: '2020-07-15 19:01', description: Air leak}
+guard_band: 24h
+features:
+  rolling_windows: [1min, 5min, 15min]
+  sequence_length: 60
+isolation_forest:
+  n_estimators: 200
+  max_samples: auto
+  contamination: auto
+  n_jobs: -1
+  max_training_rows: 30000
+autoencoder:
+  epochs: 15
+  batch_size: 128
+  learning_rate: 0.001
+  patience: 3
+  training_stride: 5
+  max_training_windows: 6000
+  max_development_windows: 1500
+  threads: 2
+  binary_loss_weight: 1.0
+alerts:
+  false_alert_budget_per_day: 1.0
+  persistence: 2min
+  cooldown: 30min
+  max_gap: 90s
+  expected_cadence: 1min
+  pre_failure_horizon: 6h
+selection:
+  min_validation_event_recall: 0.6666666667
+  max_validation_unmatched_alerts_per_day: 1.0
+  max_inference_ms_per_row: 25.0
+  policy: validation_event_recall_then_unmatched_alerts_then_simplicity
+tracking:
+  experiment_name: metropt-anomaly-detection
+  local_uri: sqlite:///reports/mlflow.db
