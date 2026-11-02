@@ -1,7 +1,7 @@
 .venv/
 __pycache__/
 *.egg-info/
-artifacts/
+artifacts/runs/
 .mplconfig/
 mlruns/
 .DS_Store
@@ -10,7 +10,5 @@ dist/
 build/
 data/raw/
 data/processed/
-reports/runs/
-reports/*.db*
 .pytest_cache/
 .uv-cache/
