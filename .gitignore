@@ -12,3 +12,4 @@ data/raw/
 data/processed/
 .pytest_cache/
 .uv-cache/
+test-results/
