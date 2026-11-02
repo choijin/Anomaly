@@ -1,6 +1,6 @@
 # Results
 
-Validation selected **CNN autoencoder**. Release is **blocked**.
+I selected **CNN autoencoder** from the validation results; release is **blocked**.
 
 ## Validation
 
@@ -10,7 +10,7 @@ Validation selected **CNN autoencoder**. Release is **blocked**.
 | IF temporal | 2/3 | 0.910 | 0.68 |
 | CNN autoencoder | 3/3 | 0.628 | 32.52 |
 
-Thresholds used validation only, with a 1-unmatched-alert/day ceiling, 2min persistence, and 30min cooldown.
+I chose thresholds on validation data, allowing up to 1 unmatched alert/day with 2min persistence and 30min cooldown.
 
 ## Test
 
@@ -24,8 +24,8 @@ Thresholds used validation only, with a 1-unmatched-alert/day ceiling, 2min pers
 | Point recall | 0.346 | 0.005 | 0.000 |
 | Inference ms/row | 0.005 | 0.019 | 0.054 |
 
-Scored event coverage: F4: 78%. Delay is measured after onset for detected events. Latency is a CPU batch average including preprocessing and alert rules.
+Scored coverage was F4: 78%. I measure delay from failure onset and include preprocessing and alert rules in the CPU batch latency.
 
-The CNN threshold was **32.52**, against a highest test score of **11.29** (8.83 during reported failures). It produced no test alerts. Its PR-AUC was 0.380 versus 0.285 for raw IF; ranking and alert-threshold performance are different measures.
+The CNN threshold was **32.52**, while its highest test score was **11.29**. It produced no test alerts. Its PR-AUC was 0.380 versus 0.285 for raw IF; I assess ranking separately from alert performance.
 
-One asset and four events limit what this comparison can establish. Unreported periods are unknown, so unmatched alerts and row metrics are proxies. Test results were not used to switch models or retune thresholds.
+Given one asset and four failures, I treat these as preliminary results. Reports may miss problems, so unmatched alerts and row metrics are proxies. I kept model and threshold selection separate from testing.
