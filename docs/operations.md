@@ -1,57 +1,43 @@
-# Operations
+# Local operation
 
-## Build and release
+`uv run metropt run` writes models, thresholds, scores, and configuration to
+`artifacts/runs/benchmark/`. Summary metrics go to `artifacts/evaluation/`;
+readable output goes to `reports/`.
 
-CI installs `uv.lock`, verifies the exported Databricks requirements, runs tests,
-and builds a wheel. The manual benchmark workflow downloads the data and runs
-all three experiments. Deployment and model promotion are separate workflows.
+MLflow stores experiment records in `mlruns/mlflow.db` and packaged models under
+`mlruns/`. Open the local UI with:
 
-Training runs in development against a pinned Delta snapshot. It logs MLflow
-runs, freezes validation selection, evaluates test, and registers the selected
-artifact as `candidate`. Promotion requires:
+```bash
+uv run mlflow ui --backend-store-uri sqlite:///mlruns/mlflow.db --port 5001
+```
 
-- An explicit version and approval reference.
-- Passing validation metrics and `release_blocked=false`.
-- A matching configuration digest and retained source lineage.
-- Site-reviewed provenance for production; public benchmarks are development-only.
+To score prepared data:
 
-The current CNN candidate missed July's event and cannot become `champion`.
-A missing release-review outcome also blocks promotion. The alias changes last,
-after all checks and audit tags succeed.
+```bash
+uv run metropt predict \
+  --model artifacts/runs/benchmark/selected_model.joblib \
+  --input data/processed/observations.parquet \
+  --output artifacts/runs/replay_predictions.parquet
+```
 
-GitHub deployment uses `dev`/`prod` environments and OIDC. Configure
-`DATABRICKS_HOST`, `DATABRICKS_CLIENT_ID`, `DATABRICKS_CATALOG`,
-`DATABRICKS_CLUSTER_ID`, and `METROPT_RAW_DATA_PATH`; require reviewers for `prod`.
-See [Databricks setup](../databricks/README.md).
+Supply ordered minute snapshots with `timestamp`, `segment_id`, and all 15 sensors.
+For exact test reproduction, use the same test-partition start. Arbitrarily
+trimming history changes window warm-up and can change alert cooldown.
 
-## Inference contract
+## Databricks batches and releases
 
-Input is one asset's ordered minute snapshots: `timestamp`, integer `segment_id`,
-and the 15 sensors. Timestamps use the source clock; digital values must be 0/1.
-Gaps reset feature windows and alert persistence. Cooldown retains the last
-notification time. Warm-up rows return no score and `is_scorable=false`.
+Jobs pin the Delta snapshot and resolve the model alias once. They replay
+`[replay_start, end)` and write `[start, end)`. Keep the replay anchor fixed.
+Retry writes merge on batch ID and timestamp. The driver limit is 500,000 rows;
+larger deployments need persisted per-asset state.
 
-A request reads `[replay_start, end)` and emits `[start, end)`. Keep the same
-replay anchor across batches; an arbitrary hour of history can change cooldown
-phase. Delta and model versions are fixed for the request. Retry writes merge
-on batch ID and timestamp. Overlapping requests retain their own batch IDs.
+CI tests and builds the wheel. Deployment and model promotion are separate.
+Promotion needs a version, approval reference, passing validation, and
+`release_blocked=false`. Production also requires site-reviewed data.
+The current CNN cannot become champion. Rollback promotes an approved older
+version recorded in `previous_champion_version`.
 
-Scoring runs on one driver with a 500,000-row bound. Larger deployments should
-persist rolling, sequence, and alert state per asset. Scheduling requires ingestion
-watermarks and an explicit source version; this historical benchmark has no schedule.
-
-## Monitoring and incidents
-
-Successful batches write versioned predictions and monitoring JSON to Delta.
-Check schema failures, nonfinite inputs, gaps, unscorable coverage, mean shifts,
-changes in previously constant sensors, latency, and alert volume. Invalid input
-fails the job; logs and configured failure emails provide the failure record.
-[monitoring.sql](../databricks/monitoring.sql) queries the batch metrics.
-
-For an alert increase, check ingestion and gaps first, then operating states and
-drift against the training reference. Request maintenance review before changing
-thresholds or retraining. Drift and alert counts do not establish model accuracy.
-
-To roll back, promote the recorded `previous_champion_version` with an explicit
-rollback approval reference. Record the incident and replay the affected batch
-against its original Delta version using the restored model.
+Monitor input quality, gaps, unscorable rows, drift, latency, and alert counts
+with [monitoring.sql](../databricks/monitoring.sql). Investigate ingestion and
+operating states before changing thresholds. Maintenance review is needed to
+measure accuracy. See [Databricks setup](../databricks/README.md) for deployment.
