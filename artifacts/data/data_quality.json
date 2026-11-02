@@ -3,7 +3,7 @@
   "snapshot_rows": 252719,
   "raw_csv_sha256": "db30ccb4ea402e3c8bf2c99db06e288d4f2a772f6928f9dbe26a920d69793e24",
   "expected_csv_sha256": "db30ccb4ea402e3c8bf2c99db06e288d4f2a772f6928f9dbe26a920d69793e24",
-  "config_digest": "818787a3aae54303730b2de74514bf440cbfade8dfd1bfbe5a432c68b3565675",
+  "config_digest": "014c241d7cd17662168fd8c8570494e01363a3e79b21d0308bc8a6299c796169",
   "first_timestamp": "2020-02-01 00:00:00",
   "last_timestamp": "2020-09-01 03:59:50",
   "missing_values": 0,
