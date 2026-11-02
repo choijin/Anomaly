@@ -131,7 +131,12 @@ def run_experiments(
         "source_sha256": CSV_SHA256,
         **(source_metadata or {}),
     }
-    mlflow.set_tracking_uri(tracking_uri or config["tracking"]["local_uri"])
+    tracking_uri = tracking_uri or config["tracking"]["local_uri"]
+    if tracking_uri.startswith("sqlite:///"):
+        Path(tracking_uri.removeprefix("sqlite:///")).parent.mkdir(
+            parents=True, exist_ok=True
+        )
+    mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(experiment_name or config["tracking"]["experiment_name"])
     results, artifacts = {}, {}
     for name in MODEL_NAMES:
