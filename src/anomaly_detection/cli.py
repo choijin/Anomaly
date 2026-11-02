@@ -14,11 +14,13 @@ def main() -> None:
     download.add_argument("--folder", default="data/raw")
     prepare = subcommands.add_parser("prepare")
     prepare.add_argument("--config", default="configs/experiments.yaml")
-    prepare.add_argument("--output", default="reports")
+    prepare.add_argument("--output", default="artifacts/data")
+    prepare.add_argument("--figure-dir", default="reports/figures")
     run = subcommands.add_parser("run")
     run.add_argument("--config", default="configs/experiments.yaml")
-    run.add_argument("--output", default="reports/runs/benchmark")
+    run.add_argument("--output", default="artifacts/runs/benchmark")
     run.add_argument("--report-dir", default="reports")
+    run.add_argument("--evaluation-dir", default="artifacts/evaluation")
     predict = subcommands.add_parser("predict")
     for name in ["model", "input", "output"]:
         predict.add_argument(f"--{name}", required=True)
@@ -30,7 +32,9 @@ def main() -> None:
     elif args.command == "prepare":
         from .eda import prepare_and_inspect
 
-        observations = prepare_and_inspect(load_config(args.config), args.output)
+        observations = prepare_and_inspect(
+            load_config(args.config), args.output, args.figure_dir
+        )
         print(
             f"Prepared {len(observations):,} causal minute snapshots; see {args.output}/data_quality.json"
         )
@@ -48,7 +52,9 @@ def main() -> None:
         )
         from .report import publish_results
 
-        publish_results(summary, Path(args.output), Path(args.report_dir))
+        publish_results(
+            summary, Path(args.output), Path(args.report_dir), Path(args.evaluation_dir)
+        )
         print(
             json.dumps(
                 {
