@@ -53,4 +53,4 @@ selection:
   policy: validation_event_recall_then_unmatched_alerts_then_simplicity
 tracking:
   experiment_name: metropt-anomaly-detection
-  local_uri: sqlite:///reports/mlflow.db
+  local_uri: sqlite:///mlruns/mlflow.db
