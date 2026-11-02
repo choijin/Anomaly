@@ -1,8 +1,8 @@
 # Databricks setup
 
-This workflow is configured but has not run in a workspace. It needs Unity
-Catalog, a Volume, and compatible Python 3.12 ML compute (for example Runtime
-16.4 LTS ML). The job identity needs table/model permissions and Volume access.
+I've configured this workflow but haven't run it in a workspace yet. It needs
+Unity Catalog, a Volume, and Python 3.12 ML compute, such as Runtime 16.4 LTS ML.
+The job identity needs table/model permissions and Volume access.
 
 ## Deploy
 
@@ -28,28 +28,28 @@ databricks bundle run --target dev score_batch \
   --params 'start=2020-06-15 00:00:00,end=2020-09-02 00:00:00,replay_start=2020-06-15 00:00:00,source_version=0,model_alias=candidate'
 ```
 
-Loading verifies the CSV and creates `sensor_observations`; it fails if the table
-already exists. Replace `source_version=0` with the returned Delta version if needed.
-Training registers `catalog.metropt_dev.compressor_anomaly` as `candidate`.
-Scoring writes `anomaly_predictions` and `anomaly_monitoring`.
+The load job verifies the CSV before creating `sensor_observations` and stops
+if the table exists. Use its returned Delta version if it differs from `0`.
+Training registers `catalog.metropt_dev.compressor_anomaly` as `candidate`;
+scoring writes `anomaly_predictions` and `anomaly_monitoring`.
 
-The CNN is blocked from release but can be inspected through `candidate`.
-A future passing version can be promoted with:
+You can inspect the blocked CNN through `candidate`, and promote a future
+passing version with:
 
 ```bash
 databricks bundle run --target dev promote_model \
   --params 'source_model=YOUR_CATALOG.metropt_dev.compressor_anomaly,source_version=VERSION,approval_reference=CHANGE_ID,allow_benchmark=true'
 ```
 
-Production uses a separate schema/service principal and requires site-reviewed
-data. GitHub deployment uses OIDC and `dev`/`prod` environments; require reviewers
-for `prod`. Set `DATABRICKS_HOST`, `DATABRICKS_CLIENT_ID`, `DATABRICKS_CATALOG`,
+Production needs a separate schema/service principal and site-reviewed data.
+For GitHub deployment, use OIDC and `dev`/`prod` environments with required `prod`
+reviewers. Set `DATABRICKS_HOST`, `DATABRICKS_CLIENT_ID`, `DATABRICKS_CATALOG`,
 `DATABRICKS_CLUSTER_ID`, and `METROPT_RAW_DATA_PATH` in those environments.
 
 ## Dependencies
 
-Tasks install the wheel and `requirements/databricks.txt`. After updating `uv.lock`,
-regenerate that file; CI checks it for drift:
+Each task installs the wheel and `requirements/databricks.txt`. When updating
+`uv.lock`, regenerate the requirements too; CI checks that they match:
 
 ```bash
 uv export --frozen --no-dev --no-emit-project --no-hashes \
