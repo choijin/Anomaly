@@ -1,0 +1,5 @@
+event_id,start,end,description,partition,observed_snapshots
+F1,2020-04-18 00:00,2020-04-19 00:00,Air leak,validation,1436
+F2,2020-05-29 23:30,2020-05-30 06:01,Air leak,validation,391
+F3,2020-06-05 10:00,2020-06-07 14:31,Air leak,validation,2864
+F4,2020-07-15 14:30,2020-07-15 19:01,Air leak,test,270
