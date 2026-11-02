@@ -38,7 +38,7 @@ def write_comparison_report(summary: dict, output: Path) -> None:
     lines = [
         "# Results",
         "",
-        f"Validation selected **{selected}**. Release is **{'blocked' if blocked else 'pending review'}**.",
+        f"I selected **{selected}** from the validation results; release is **{'blocked' if blocked else 'pending review'}**.",
         "",
         "## Validation",
         "",
@@ -53,8 +53,8 @@ def write_comparison_report(summary: dict, output: Path) -> None:
     alert_rules = json.loads((output / "config.json").read_text())["alerts"]
     lines += [
         "",
-        f"Thresholds used validation only, with a {alert_rules['false_alert_budget_per_day']:g}-unmatched-alert/day ceiling, "
-        f"{alert_rules['persistence']} persistence, and {alert_rules['cooldown']} cooldown.",
+        f"I chose thresholds on validation data, allowing up to {alert_rules['false_alert_budget_per_day']:g} unmatched alert/day "
+        f"with {alert_rules['persistence']} persistence and {alert_rules['cooldown']} cooldown.",
         "",
         "## Test",
         "",
@@ -82,8 +82,8 @@ def write_comparison_report(summary: dict, output: Path) -> None:
     )
     lines += [
         "",
-        f"Scored event coverage: {coverage}. Delay is measured after onset for detected events. "
-        "Latency is a CPU batch average including preprocessing and alert rules.",
+        f"Scored coverage was {coverage}. I measure delay from failure onset and include "
+        "preprocessing and alert rules in the CPU batch latency.",
     ]
     cnn = summary["per_model"]["cnn_autoencoder"]
     if "score_max" in cnn["test_metrics"]:
@@ -91,20 +91,20 @@ def write_comparison_report(summary: dict, output: Path) -> None:
         lines += [
             "",
             f"The CNN threshold was **{cnn['validation_metrics']['threshold']:.2f}**, "
-            f"against a highest test score of **{metrics['score_max']:.2f}** "
-            f"({_number(metrics['failure_score_max'], 2)} during reported failures). "
+            f"while its highest test score was **{metrics['score_max']:.2f}**. "
             + (
                 "It produced no test alerts. "
                 if metrics["score_max"] < cnn["validation_metrics"]["threshold"]
                 else ""
             )
             + f"Its PR-AUC was {_number(metrics['pr_auc'])} versus {_number(test_metrics[0]['pr_auc'])} for raw IF; "
-            "ranking and alert-threshold performance are different measures.",
+            "I assess ranking separately from alert performance.",
         ]
     lines += [
         "",
-        "One asset and four events limit what this comparison can establish. Unreported periods are unknown, "
-        "so unmatched alerts and row metrics are proxies. Test results were not used to switch models or retune thresholds.",
+        "Given one asset and four failures, I treat these as preliminary results. "
+        "Reports may miss problems, so unmatched alerts and row metrics are proxies. "
+        "I kept model and threshold selection separate from testing.",
     ]
     (output / "report.md").write_text("\n".join(lines) + "\n")
 
