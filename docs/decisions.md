@@ -1,24 +1,23 @@
 # Model choices
 
-**Isolation Forest** is the baseline. Random splits isolate unusual readings in
-fewer steps. The second forest adds rolling means, variability, changes, extremes,
-and slopes over 1, 5, and 15 minutes. Those features did not help this run.
+I started with **Isolation Forest** because it's a simple baseline:
+unusual readings tend to be isolated in fewer tree splits. I added rolling
+statistics over 1, 5, and 15 minutes to see whether historical context helped,
+but they didn't improve this run.
 
-**The CNN autoencoder** reconstructs 60-step sensor sequences. Continuous channels
-use standardized MSE; binary channels use cross entropy. Early stopping uses a
-separate normal period. Training has no failure target, though reported events
-are used to choose thresholds and compare models.
+I used a **CNN autoencoder** to learn patterns from 60-step sequences. Its loss
+combines standardized MSE for continuous sensors with cross entropy for binary
+signals. I used a separate normal period for early stopping and kept failure
+reports for threshold selection and evaluation rather than model training.
 
-Thresholds are validation-score quantiles. Keep candidates below one unmatched
-alert/day, prefer event recall, then fewer unmatched alerts. Alerts require two
-minutes of exceedance and have a 30-minute cooldown.
+To choose thresholds, I searched validation-score quantiles under a limit of
+one unmatched alert/day, prioritizing event recall and then fewer alerts.
+An alert needs two minutes of exceedance, followed by a 30-minute cooldown.
 
-The CNN won validation but missed July. Its threshold was 32.52; July's scores
-reached only 8.83. It ranked test readings better than raw Isolation Forest
-(PR-AUC 0.380 vs 0.285), but its alert threshold did not transfer. Selection also
-favored fewer alerts rather than faster detection. Three validation events were
-not enough to establish a dependable operating threshold.
+I selected the CNN on validation, but its threshold of 32.52 was well above
+July's highest failure score of 8.83. Its test PR-AUC was better than raw IF
+(0.380 vs 0.285), so the ranking held up better than the alert threshold.
+My selection rule favored fewer alarms over faster detection.
 
-The selected candidate stays blocked. Lowering its threshold to catch this known
-test event would require a new independent assessment. More assets and reviewed
-failure examples would be more useful than adding model complexity.
+I've kept the candidate on hold. Before changing it, I'd need an independent
+assessment. I'd focus on more reviewed failures before adding model complexity.
