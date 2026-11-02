@@ -28,7 +28,40 @@ jobs:
           diff -u "$checked_requirements" "$generated_requirements"
           rm "$generated_requirements" "$checked_requirements"
       - name: Verify temporal leakage, event metrics, models, and promotion rules
-        run: uv run --frozen pytest
+        run: uv run --frozen pytest --junitxml=test-results/pytest.xml
+      - name: Summarize test results
+        if: always()
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          report = Path('test-results/pytest.xml')
+          lines = ['## Python tests', '']
+          if report.exists():
+              root = ET.parse(report).getroot()
+              for case in root.iter('testcase'):
+                  failure = case.find('failure')
+                  if failure is None:
+                      failure = case.find('error')
+                  if failure is not None:
+                      lines += [f"### {case.get('classname')}.{case.get('name')}",
+                                '```text', (failure.text or failure.get('message', ''))[:16000], '```']
+              if len(lines) == 2:
+                  lines.append('All tests passed.')
+          else:
+              lines.append('Tests did not produce a report; check the earlier steps.')
+          Path(os.environ['GITHUB_STEP_SUMMARY']).write_text('\n'.join(lines) + '\n')
+          PY
+      - name: Save test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results
+          path: test-results/pytest.xml
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Build the deployable wheel
         run: uv build --wheel
       - uses: actions/upload-artifact@v4
