@@ -33,10 +33,16 @@ def highlight_events(axis, events: list[dict]) -> None:
         )
 
 
-def prepare_and_inspect(config: dict, output: str | Path = "reports") -> pd.DataFrame:
+def prepare_and_inspect(
+    config: dict,
+    output: str | Path = "artifacts/data",
+    figure_dir: str | Path = "reports/figures",
+) -> pd.DataFrame:
     """Write measured cadence, gaps, distributions, states, labels, and split protocol."""
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
+    figure_dir = Path(figure_dir)
+    figure_dir.mkdir(parents=True, exist_ok=True)
     raw = load_raw(config["data"]["raw_path"])
     observations = prepare_observations(raw, config)
     annotated = annotate_observations(
@@ -117,21 +123,21 @@ def prepare_and_inspect(config: dict, output: str | Path = "reports") -> pd.Data
         axis.hist(raw[column], bins=70, color="steelblue")
         axis.set(title=column, ylabel="Observations")
     axes.flat[-1].axis("off")
-    figure.savefig(output / "sensor_distributions.png", dpi=140)
+    figure.savefig(figure_dir / "sensor_distributions.png", dpi=140)
     plt.close(figure)
     figure, axes = plt.subplots(4, 2, figsize=(12, 10), constrained_layout=True)
     for axis, column in zip(axes.flat, DIGITAL_COLUMNS):
         counts = raw[column].value_counts().reindex([0, 1], fill_value=0)
         axis.bar(["0", "1"], counts, color="steelblue")
         axis.set(title=column, ylabel="Observations")
-    figure.savefig(output / "digital_signals.png", dpi=140)
+    figure.savefig(figure_dir / "digital_signals.png", dpi=140)
     plt.close(figure)
     figure, axis = plt.subplots(figsize=(11, 9), constrained_layout=True)
     heatmap = axis.imshow(correlations, vmin=-1, vmax=1, cmap="coolwarm")
     axis.set_xticks(range(15), SENSOR_COLUMNS, rotation=90)
     axis.set_yticks(range(15), SENSOR_COLUMNS)
     figure.colorbar(heatmap, ax=axis, label="Pearson correlation")
-    figure.savefig(output / "sensor_correlations.png", dpi=140)
+    figure.savefig(figure_dir / "sensor_correlations.png", dpi=140)
     plt.close(figure)
     chart = (
         observations.set_index("timestamp")[CONTINUOUS_COLUMNS].resample("10min").mean()
@@ -146,7 +152,7 @@ def prepare_and_inspect(config: dict, output: str | Path = "reports") -> pd.Data
     axes[0].set_title(
         "MetroPT-3 sensor history: reported failure intervals shaded (10-minute display means)"
     )
-    figure.savefig(output / "sensor_timeline.png", dpi=140)
+    figure.savefig(figure_dir / "sensor_timeline.png", dpi=140)
     plt.close(figure)
     # These are descriptive electrical-current bands, never normal/failure labels.
     states = observations.assign(
@@ -169,6 +175,6 @@ def prepare_and_inspect(config: dict, output: str | Path = "reports") -> pd.Data
     axes[0].legend(markerscale=3)
     pd.crosstab(states.COMP, states.DV_eletric).plot.bar(ax=axes[1])
     axes[1].set(title="Compressor control combinations", ylabel="Minute snapshots")
-    figure.savefig(output / "operating_states.png", dpi=140)
+    figure.savefig(figure_dir / "operating_states.png", dpi=140)
     plt.close(figure)
     return observations
