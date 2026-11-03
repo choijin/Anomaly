@@ -3,7 +3,8 @@
 import numpy as np
 import pandas as pd
 import pytest
-from anomaly_detection.data import CONTINUOUS_COLUMNS, DIGITAL_COLUMNS
+
+from anomaly_detection.data.schema import CONTINUOUS_COLUMNS, DIGITAL_COLUMNS
 
 
 @pytest.fixture
