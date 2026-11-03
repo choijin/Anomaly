@@ -8,7 +8,7 @@ from collections.abc import Sequence
 import numpy as np
 import pandas as pd
 
-from .data import CONTINUOUS_COLUMNS, SENSOR_COLUMNS
+from anomaly_detection.data.schema import CONTINUOUS_COLUMNS, SENSOR_COLUMNS
 
 
 def segment_numbers(frame: pd.DataFrame, max_gap: str = "90s") -> np.ndarray:
