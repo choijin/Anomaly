@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 
-from .data import CONTINUOUS_COLUMNS
+from anomaly_detection.data.schema import CONTINUOUS_COLUMNS
 
 
 def temporal_score_sensitivity(
