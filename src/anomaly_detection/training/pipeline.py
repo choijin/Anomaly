@@ -1,27 +1,32 @@
 """Fit three normal-only detectors; select on validation before opening final test."""
 
-from pathlib import Path
 import importlib.metadata
 import json
 import math
 import platform
 import time
+from pathlib import Path
+
 import joblib
 import mlflow
 import numpy as np
 import pandas as pd
 
-from .config import config_digest
-from .data import CSV_SHA256, SENSOR_COLUMNS, validate_observations
-from .evaluation import apply_alert_policy, calibrate_threshold, evaluate_predictions
-from .features import build_features, sequence_endpoints
-from .labels import annotate_observations
-from .models.isolation_forest import IsolationForestDetector
-from .models.cnn_autoencoder import SequenceAutoencoder
-from .operations import passes_validation
-from .predict import DetectorArtifact, MODEL_INPUT_COLUMNS
-from .splits import chronological_splits
-from .tracking import log_model
+from anomaly_detection.config import config_digest
+from anomaly_detection.data.annotations import annotate_observations
+from anomaly_detection.data.features import build_features, sequence_endpoints
+from anomaly_detection.data.schema import SENSOR_COLUMNS, validate_observations
+from anomaly_detection.inference.alerts import apply_alert_policy
+from anomaly_detection.inference.predictor import MODEL_INPUT_COLUMNS, DetectorArtifact
+from anomaly_detection.mlops.governance import passes_validation
+from anomaly_detection.mlops.tracking import log_model
+from anomaly_detection.models.cnn_autoencoder import SequenceAutoencoder
+from anomaly_detection.models.isolation_forest import IsolationForestDetector
+from anomaly_detection.training.evaluation import (
+    calibrate_threshold,
+    evaluate_predictions,
+)
+from anomaly_detection.training.splits import chronological_splits
 
 MODEL_NAMES = ["if_raw", "if_temporal", "cnn_autoencoder"]
 
@@ -81,19 +86,27 @@ def _evaluate(scored, config, split):
     )
 
 
-def run_experiments(
+def train_and_evaluate(
     observations: pd.DataFrame,
     config: dict,
     output_dir: Path,
+    *,
+    source_metadata: dict,
     tracking_uri: str | None = None,
     experiment_name: str | None = None,
-    source_metadata: dict | None = None,
 ) -> dict:
     """Train, calibrate, select, then evaluate on the held-out test period.
 
     All models share eligible endpoints. Scalers fit training only; CNN early
     stopping uses normal development data. Selection is saved before test scoring.
     """
+    if not source_metadata or not all(
+        source_metadata.get(key) for key in ["data_source", "source_sha256"]
+    ):
+        raise ValueError(
+            "Training requires explicit data_source and source_sha256 provenance"
+        )
+    source = dict(source_metadata)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     validate_observations(observations)
@@ -126,11 +139,6 @@ def run_experiments(
         }
         for column in SENSOR_COLUMNS
     }
-    source = {
-        "data_source": "public_benchmark",
-        "source_sha256": CSV_SHA256,
-        **(source_metadata or {}),
-    }
     tracking_uri = tracking_uri or config["tracking"]["local_uri"]
     if tracking_uri.startswith("sqlite:///"):
         Path(tracking_uri.removeprefix("sqlite:///")).parent.mkdir(
@@ -140,7 +148,7 @@ def run_experiments(
     mlflow.set_experiment(experiment_name or config["tracking"]["experiment_name"])
     results, artifacts = {}, {}
     for name in MODEL_NAMES:
-        print(f"Training {name} on February normal data", flush=True)
+        print(f"Training {name} on the normal training partition", flush=True)
         folder = output_dir / name
         folder.mkdir(exist_ok=True)
         with mlflow.start_run(run_name=name) as run:
@@ -195,7 +203,7 @@ def run_experiments(
                 mlflow.log_input(
                     mlflow.data.from_pandas(
                         part[MODEL_INPUT_COLUMNS],
-                        source=source.get("source_table", config["data"]["raw_path"]),
+                        source=source.get("source_uri"),
                         name=context,
                     ),
                     context=context,
@@ -266,19 +274,6 @@ def run_experiments(
                 scored, artifact.threshold, **calibration["policy"]
             )
             scored = _with_labels(scored, validation)
-            if name == "if_temporal":
-                from .diagnostics import temporal_score_sensitivity
-
-                temporal_features = build_features(
-                    validation,
-                    config["features"]["rolling_windows"],
-                    config["data"]["max_gap"],
-                )
-                temporal_score_sensitivity(
-                    detector,
-                    temporal_features.iloc[endpoints["validation"]],
-                    seed=config["seed"],
-                ).to_csv(folder / "validation_score_sensitivity.csv", index=False)
             metrics = calibration["metrics"]
             metrics["inference_ms_per_row"] = 1000 * elapsed / len(scored)
             metrics["inference_ms_per_scorable_row"] = (
@@ -372,7 +367,6 @@ def run_experiments(
                     "test_event_recall": str(metrics["event_recall"]),
                 }
             )
-            # Export the original fitted object and frozen threshold. Never refit on test.
     selected_path = output_dir / "selected_model.joblib"
     joblib.dump(artifacts[selected_model], selected_path)
     restored = joblib.load(selected_path).predict(test[MODEL_INPUT_COLUMNS])
@@ -434,21 +428,8 @@ def run_experiments(
     }
     _write_json(output_dir / "summary.json", summary)
     _write_json(output_dir / "config.json", config)
-    from .visualization import make_model_figures
-
-    make_model_figures(
-        test_frames,
-        {name: item["test_metrics"] for name, item in results.items()},
-        config["failure_events"],
-        output_dir,
-        autoencoder=artifacts["cnn_autoencoder"].detector,
-        test_frame=test,
-    )
-    from .report import write_comparison_report
-
-    write_comparison_report(summary, output_dir)
     with mlflow.start_run(run_id=results[selected_model]["run_id"]):
         for path in output_dir.iterdir():
-            if path.is_file() and path.suffix in {".json", ".png", ".md", ".csv"}:
-                mlflow.log_artifact(str(path), artifact_path="comparison")
+            if path.is_file() and path.suffix == ".json":
+                mlflow.log_artifact(str(path), artifact_path="evaluation")
     return summary
