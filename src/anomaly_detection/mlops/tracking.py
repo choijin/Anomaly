@@ -2,13 +2,14 @@
 
 import importlib.metadata
 from pathlib import Path
+
 import mlflow
 import numpy as np
 import pandas as pd
 from mlflow.models import infer_signature
 
-from .data import SENSOR_COLUMNS
-from .predict import MODEL_INPUT_COLUMNS
+from anomaly_detection.data.schema import SENSOR_COLUMNS
+from anomaly_detection.inference.predictor import MODEL_INPUT_COLUMNS
 
 
 class AnomalyModel(mlflow.pyfunc.PythonModel):
@@ -40,7 +41,7 @@ def log_model(artifact, example_frame: pd.DataFrame) -> str:
         python_model=AnomalyModel(artifact),
         signature=infer_signature(example, prediction),
         input_example=example,
-        code_paths=[str(Path(__file__).parent)],
+        code_paths=[str(Path(__file__).parents[1])],
         pip_requirements=requirements,
     )
     restored = mlflow.pyfunc.load_model(info.model_uri).predict(example)
