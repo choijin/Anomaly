@@ -1,23 +1,27 @@
 # Model choices
 
-I started with **Isolation Forest** because it's a simple baseline:
-unusual readings tend to be isolated in fewer tree splits. I added rolling
-statistics over 1, 5, and 15 minutes to see whether historical context helped,
-but they didn't improve this run.
+I started with **Isolation Forest**, which treats readings as unusual when random
+tree splits can isolate them quickly. I added recent averages, variation, and
+trends to a second forest to test whether history helped. It didn't improve
+this comparison.
 
-I used a **CNN autoencoder** to learn patterns from 60-step sequences. Its loss
-combines standardized MSE for continuous sensors with cross entropy for binary
-signals. I used a separate normal period for early stopping and kept failure
-reports for threshold selection and evaluation rather than model training.
+The **CNN autoencoder** learns to reconstruct sequences of sensor readings.
+Larger reconstruction errors suggest unfamiliar behavior. I balanced squared
+error for continuous sensors with cross entropy for binary signals and used a
+separate normal period to decide when to stop training.
 
-To choose thresholds, I searched validation-score quantiles under a limit of
-one unmatched alert/day, prioritizing event recall and then fewer alerts.
-An alert needs two minutes of exceedance, followed by a 30-minute cooldown.
+I chose alert cutoffs on the development data, allowing at most one alert per
+observed day outside reported failures. I preferred finding more failure periods,
+then fewer unmatched alerts. An alert needs two minutes of sustained exceedance,
+with a 30-minute pause between notifications.
 
-I selected the CNN on validation, but its threshold of 32.52 was well above
-July's highest failure score of 8.83. Its test PR-AUC was better than raw IF
-(0.380 vs 0.285), so the ranking held up better than the alert threshold.
-My selection rule favored fewer alarms over faster detection.
+That rule chose the CNN, but its cutoff of 32.52 exceeded every score in the
+final test (maximum 11.29). It ranked failure readings reasonably well, yet never
+raised an alert. My selection rule rewarded fewer alarms without prioritizing
+fast detection, and three development events were too little evidence that the
+cutoff would work on another failure.
 
-I've kept the candidate on hold. Before changing it, I'd need an independent
-assessment. I'd focus on more reviewed failures before adding model complexity.
+I kept the original comparison so the final test still measures an earlier choice.
+The missed failure prevents deployment approval. I'd collect more reviewed failure
+examples and define the acceptable detection delay before making another choice
+and testing it independently.
