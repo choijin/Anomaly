@@ -4,8 +4,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from anomaly_detection.data import CONTINUOUS_COLUMNS, DIGITAL_COLUMNS, SENSOR_COLUMNS
-from anomaly_detection.features import build_features, sequence_endpoints
+from anomaly_detection.data.features import build_features, sequence_endpoints
+from anomaly_detection.data.schema import (
+    CONTINUOUS_COLUMNS,
+    DIGITAL_COLUMNS,
+    SENSOR_COLUMNS,
+)
 
 
 def telemetry(count=100):
