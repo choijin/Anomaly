@@ -1,15 +1,12 @@
-"""Tests for weak annotations and the operational meaning of an alert."""
-
 import numpy as np
 import pandas as pd
 import pytest
 
-from anomaly_detection.evaluation import (
-    apply_alert_policy,
+from anomaly_detection.inference.alerts import apply_alert_policy
+from anomaly_detection.training.evaluation import (
     calibrate_threshold,
     evaluate_predictions,
 )
-from anomaly_detection.labels import annotate_observations, validate_intervals
 
 
 def scores(values, start="2020-04-18 00:00", frequency="1min"):
@@ -29,115 +26,6 @@ def event(start="2020-04-18 00:03", end="2020-04-18 00:06", identifier="F1"):
         "end": end,
         "description": "Air leak",
     }
-
-
-def test_annotations_distinguish_unknown_and_normal_and_exclude_guard_band():
-    frame = pd.DataFrame(
-        {"timestamp": pd.date_range("2020-02-01", periods=8, freq="1h")}
-    )
-    annotated = annotate_observations(
-        frame,
-        [event("2020-02-01 04:00", "2020-02-01 05:00")],
-        [{"start": "2020-02-01", "end": "2020-02-01 06:00"}],
-        guard_band="1h",
-    )
-    assert annotated.annotation_state.tolist() == ["trusted_normal"] * 4 + [
-        "reported_failure",
-        "trusted_normal",
-        "unknown",
-        "unknown",
-    ]
-    assert annotated.training_eligible.tolist() == [
-        True,
-        True,
-        True,
-        False,
-        False,
-        False,
-        False,
-        False,
-    ]
-    assert annotated.event_id.notna().tolist() == [
-        False,
-        False,
-        False,
-        False,
-        True,
-        False,
-        False,
-        False,
-    ]
-    assert annotated.is_reported_failure.sum() == 1
-
-
-def test_interval_end_is_exclusive_and_labels_do_not_change_sensor_values():
-    frame = pd.DataFrame(
-        {
-            "timestamp": pd.date_range("2020-04-18 23:58", periods=4, freq="1min"),
-            "TP2": [1.0, 2.0, 3.0, 4.0],
-        }
-    )
-    marked = annotate_observations(
-        frame, [event("2020-04-18 00:00", "2020-04-19 00:00")], []
-    )
-    assert marked.is_reported_failure.tolist() == [True, True, False, False]
-    pd.testing.assert_series_equal(marked.TP2, frame.TP2)
-    assert not marked.training_eligible.any()
-
-
-def test_reject_ambiguous_overlapping_events_and_nonunique_event_ids():
-    with pytest.raises(ValueError, match="Overlapping"):
-        validate_intervals(
-            [event(), event("2020-04-18 00:04", "2020-04-18 00:07", "F2")],
-            name="events",
-        )
-    with pytest.raises(ValueError, match="unique"):
-        validate_intervals(
-            [event(), event("2020-04-18 00:07", "2020-04-18 00:08")], name="events"
-        )
-
-
-def test_timestamp_contract_rejects_unsorted_duplicate_or_zoned_times():
-    frame = pd.DataFrame({"timestamp": pd.to_datetime(["2020-02-02", "2020-02-01"])})
-    with pytest.raises(ValueError, match="sorted"):
-        annotate_observations(frame, [], [])
-    frame = pd.DataFrame(
-        {"timestamp": pd.date_range("2020-02-01", periods=2, freq="1h", tz="UTC")}
-    )
-    with pytest.raises(ValueError, match="naive"):
-        annotate_observations(frame, [], [])
-    duplicate = scores([1.0, 2.0])
-    duplicate.loc[1, "timestamp"] = duplicate.loc[0, "timestamp"]
-    with pytest.raises(ValueError, match="unique"):
-        apply_alert_policy(duplicate, 1.0)
-
-
-def test_persistence_means_elapsed_time_and_cooldown_limits_notifications():
-    predicted = apply_alert_policy(
-        scores([2.0] * 10), 1.0, persistence="2min", cooldown="4min", max_gap="90s"
-    )
-    assert np.flatnonzero(predicted.is_alert).tolist() == [2, 6]
-    assert predicted.is_above_threshold.all()
-
-
-def test_below_threshold_missing_scores_segments_and_gaps_reset_persistence():
-    frame = scores([2.0, 2.0, 0.0, 2.0, np.nan, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0])
-    frame.loc[7:, "segment_id"] = 1
-    frame.loc[9:, "timestamp"] += pd.Timedelta("10min")
-    predicted = apply_alert_policy(
-        frame, 1.0, persistence="2min", cooldown="0min", max_gap="90s"
-    )
-    assert not predicted.is_alert.any()
-    assert not predicted.loc[4, "is_above_threshold"]
-
-
-def test_gap_resets_persistence_but_does_not_erase_recent_cooldown():
-    frame = scores([2.0] * 6)
-    frame.loc[3:, "timestamp"] += pd.Timedelta("2min")
-    predicted = apply_alert_policy(
-        frame, 1.0, persistence="1min", cooldown="10min", max_gap="90s"
-    )
-    assert np.flatnonzero(predicted.is_alert).tolist() == [1]
 
 
 def test_event_detection_delay_and_pre_failure_warning_are_separate():
