@@ -8,7 +8,7 @@ The job identity needs table/model permissions and Volume access.
 
 ```bash
 uv sync --frozen
-uv run metropt download
+uv run python -m research download
 export DATABRICKS_HOST='https://YOUR_WORKSPACE'
 databricks auth login --host "$DATABRICKS_HOST"
 export BUNDLE_VAR_catalog='YOUR_CATALOG'
@@ -33,8 +33,8 @@ if the table exists. Use its returned Delta version if it differs from `0`.
 Training registers `catalog.metropt_dev.compressor_anomaly` as `candidate`;
 scoring writes `anomaly_predictions` and `anomaly_monitoring`.
 
-You can inspect the blocked CNN through `candidate`, and promote a future
-passing version with:
+The selected CNN is available for development inspection, but its failed final
+check prevents approval for operational use. For a future passing version:
 
 ```bash
 databricks bundle run --target dev promote_model \
@@ -48,8 +48,9 @@ reviewers. Set `DATABRICKS_HOST`, `DATABRICKS_CLIENT_ID`, `DATABRICKS_CATALOG`,
 
 ## Dependencies
 
-Each task installs the wheel and `requirements/databricks.txt`. When updating
-`uv.lock`, regenerate the requirements too; CI checks that they match:
+The wheel contains runtime code only; research scripts and notebooks are excluded
+from deployment. Each task installs it alongside `requirements/databricks.txt`.
+When updating `uv.lock`, regenerate the requirements too; CI checks that they match:
 
 ```bash
 uv export --frozen --no-dev --no-emit-project --no-hashes \
