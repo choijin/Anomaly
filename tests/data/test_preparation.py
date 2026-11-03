@@ -1,14 +1,12 @@
 import numpy as np
 import pandas as pd
 import pytest
+
 from anomaly_detection.config import load_config
-from anomaly_detection.data import (
-    SENSOR_COLUMNS,
-    prepare_observations,
-    validate_observations,
-)
-from anomaly_detection.labels import annotate_observations
-from anomaly_detection.splits import chronological_splits, validate_protocol
+from anomaly_detection.data.annotations import annotate_observations
+from anomaly_detection.data.ingestion import prepare_observations
+from anomaly_detection.data.schema import SENSOR_COLUMNS, validate_observations
+from anomaly_detection.training.splits import chronological_splits, validate_protocol
 
 
 def test_snapshot_availability_and_no_future_information(observations):
