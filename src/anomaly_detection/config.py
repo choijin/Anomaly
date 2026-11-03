@@ -1,9 +1,10 @@
 """Read the single, version-controlled experimental protocol."""
 
-from pathlib import Path
-from typing import Any
 import hashlib
 import json
+from pathlib import Path
+from typing import Any
+
 import yaml
 
 
