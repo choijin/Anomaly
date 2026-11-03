@@ -1,13 +1,14 @@
 """Result tables and portable reports for the repository."""
 
-from pathlib import Path
 import json
 import shutil
+from pathlib import Path
+
 import pandas as pd
 
 MODEL_LABELS = {
-    "if_raw": "IF raw",
-    "if_temporal": "IF temporal",
+    "if_raw": "Isolation Forest",
+    "if_temporal": "Isolation Forest + history",
     "cnn_autoencoder": "CNN autoencoder",
 }
 
@@ -38,11 +39,17 @@ def write_comparison_report(summary: dict, output: Path) -> None:
     lines = [
         "# Results",
         "",
-        f"I selected **{selected}** from the validation results; release is **{'blocked' if blocked else 'pending review'}**.",
+        f"I chose **{selected}** using the earlier failures, then checked it against a later period the model choice hadn't used.",
+        "It hasn't passed the checks needed for operational use."
+        if blocked
+        else "It passed the automated checks and still needs review before operational use.",
         "",
-        "## Validation",
+        "## Choosing the model",
         "",
-        "| Model | Events found | Unmatched alerts/day | Threshold |",
+        "I compared how many reported failure periods each model found and how often it raised alerts outside those periods.",
+        "These outside alerts are called **unmatched alerts**; without complete maintenance records, I can't assume they're all false alarms.",
+        "",
+        "| Model | Failures found | Unmatched alerts/day | Alert cutoff |",
         "|---|---:|---:|---:|",
     ]
     for name, result in summary["per_model"].items():
@@ -53,22 +60,21 @@ def write_comparison_report(summary: dict, output: Path) -> None:
     alert_rules = json.loads((output / "config.json").read_text())["alerts"]
     lines += [
         "",
-        f"I chose thresholds on validation data, allowing up to {alert_rules['false_alert_budget_per_day']:g} unmatched alert/day "
-        f"with {alert_rules['persistence']} persistence and {alert_rules['cooldown']} cooldown.",
+        f"I allowed at most {alert_rules['false_alert_budget_per_day']:g} unmatched alert per observed day. "
+        f"Scores must stay above the cutoff for {alert_rules['persistence']} before an alert; notifications are at least {alert_rules['cooldown']} apart.",
+        "A cutoff belongs to its model's score scale, so the cutoff numbers aren't comparable across models.",
         "",
-        "## Test",
+        "## Final check",
         "",
-        "| Metric | IF raw | IF temporal | CNN autoencoder |",
+        "| Metric | Isolation Forest | With history | CNN autoencoder |",
         "|---|---:|---:|---:|",
     ]
     test_metrics = [summary["per_model"][name]["test_metrics"] for name in MODEL_LABELS]
     for label, key in [
-        ("Event recall", "event_recall"),
+        ("Fraction of failures found", "event_recall"),
         ("Unmatched alerts/day", "unmatched_alerts_per_day"),
         ("Detection delay, minutes", "mean_detection_delay_minutes"),
-        ("PR-AUC", "pr_auc"),
-        ("Point precision", "precision"),
-        ("Point recall", "recall"),
+        ("Score ranking (PR-AUC)", "pr_auc"),
         ("Inference ms/row", "inference_ms_per_row"),
     ]:
         lines.append(
@@ -77,13 +83,13 @@ def write_comparison_report(summary: dict, output: Path) -> None:
             + " |"
         )
     coverage = ", ".join(
-        f"{event['event_id']}: {event['observed_fraction']:.0%}"
+        f"{pd.Timestamp(event['start']):%Y-%m-%d} ({event['observed_fraction']:.0%})"
         for event in test_metrics[0]["events"]
     )
     lines += [
         "",
-        f"Scored coverage was {coverage}. I measure delay from failure onset and include "
-        "preprocessing and alert rules in the CPU batch latency.",
+        f"Scorable coverage by failure: {coverage}. Gaps and sequence warm-up explain the missing minutes. "
+        "Delay starts at the reported failure onset. Runtime includes preprocessing and alert rules on a local CPU.",
     ]
     cnn = summary["per_model"]["cnn_autoencoder"]
     if "score_max" in cnn["test_metrics"]:
@@ -97,14 +103,15 @@ def write_comparison_report(summary: dict, output: Path) -> None:
                 if metrics["score_max"] < cnn["validation_metrics"]["threshold"]
                 else ""
             )
-            + f"Its PR-AUC was {_number(metrics['pr_auc'])} versus {_number(test_metrics[0]['pr_auc'])} for raw IF; "
-            "I assess ranking separately from alert performance.",
+            + "PR-AUC measures whether failure readings receive higher scores than other readings, across possible cutoffs. "
+            "Ranking and alerts at a chosen cutoff measure different things.",
         ]
     lines += [
         "",
-        "Given one asset and four failures, I treat these as preliminary results. "
-        "Reports may miss problems, so unmatched alerts and row metrics are proxies. "
-        "I kept model and threshold selection separate from testing.",
+        "This is a preliminary comparison from one compressor with four reported failures. "
+        "I kept the original model choice and cutoffs so the final check remains independent. "
+        "Trying a new choice would need more reviewed examples and another independent test. "
+        "The numeric results also retain per-reading metrics in `artifacts/evaluation/`.",
     ]
     (output / "report.md").write_text("\n".join(lines) + "\n")
 
