@@ -11,7 +11,6 @@ dependencies = [
   "numpy>=1.26,<3",
   "pandas>=2.2,<3",
   "scikit-learn>=1.5,<2",
-  "matplotlib>=3.8,<4",
   "torch>=2.6,<3",
   "mlflow>=3.0,<4",
   "pyarrow>=15,<25",
@@ -20,21 +19,21 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8,<10", "nbformat>=5,<6"]
+dev = ["pytest>=8,<10", "nbformat>=5,<6", "matplotlib>=3.8,<4"]
 
 [project.scripts]
 metropt = "anomaly_detection.cli:main"
-load_data = "anomaly_detection.databricks_jobs:load_data"
-train_model = "anomaly_detection.databricks_jobs:train_model"
-score_batch = "anomaly_detection.databricks_jobs:score_batch"
-promote_model = "anomaly_detection.databricks_jobs:promote_model"
+load_data = "anomaly_detection.mlops.jobs:load_data"
+train_model = "anomaly_detection.mlops.jobs:train_model"
+score_batch = "anomaly_detection.mlops.jobs:score_batch"
+promote_model = "anomaly_detection.mlops.jobs:promote_model"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 addopts = "-q"
 markers = ["integration: small complete local MLflow training and inference workflow"]
 
