@@ -8,16 +8,16 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import tempfile
 import time
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-from .config import config_digest, load_config
-from .operations import (
-    monitoring_summary,
+from anomaly_detection.config import config_digest, load_config
+from anomaly_detection.inference.monitoring import monitoring_summary
+from anomaly_detection.mlops.governance import (
     passes_validation,
     promote_version,
     qualified_name,
@@ -90,8 +90,8 @@ def _source_metadata(frame: pd.DataFrame) -> dict[str, str]:
 
 def _model_inputs(frame: pd.DataFrame) -> pd.DataFrame:
     """Preserve native-gap metadata without exposing it as a sensor predictor."""
-    from .data import validate_observations
-    from .predict import MODEL_INPUT_COLUMNS
+    from anomaly_detection.data.schema import validate_observations
+    from anomaly_detection.inference.predictor import MODEL_INPUT_COLUMNS
 
     validate_observations(frame)
     if "segment_id" not in frame:
@@ -101,13 +101,6 @@ def _model_inputs(frame: pd.DataFrame) -> pd.DataFrame:
 
 def load_data() -> None:
     """Load the public CSV into a development Delta table without overwriting it."""
-    from .data import (
-        SENSOR_COLUMNS,
-        file_digest,
-        load_raw,
-        prepare_observations,
-        validate_observations,
-    )
     from pyspark.sql.types import (
         DoubleType,
         LongType,
@@ -116,6 +109,13 @@ def load_data() -> None:
         StructType,
         TimestampNTZType,
     )
+
+    from anomaly_detection.data.ingestion import (
+        file_digest,
+        load_raw,
+        prepare_observations,
+    )
+    from anomaly_detection.data.schema import SENSOR_COLUMNS, validate_observations
 
     parser = _parser("Prepare a MetroPT-3 CSV uploaded to a Unity Catalog Volume")
     parser.add_argument(
@@ -168,8 +168,9 @@ def train_model() -> None:
     """Run the frozen protocol against one pinned Delta snapshot and register a candidate."""
     import mlflow
     from mlflow import MlflowClient
-    from .data import validate_observations
-    from .pipeline import run_experiments
+
+    from anomaly_detection.data.schema import validate_observations
+    from anomaly_detection.training.pipeline import train_and_evaluate
 
     parser = _parser(
         "Compare normal-only models and register the validation-selected candidate"
@@ -197,7 +198,7 @@ def train_model() -> None:
     mlflow.set_tracking_uri("databricks")
     mlflow.set_registry_uri("databricks-uc")
     with tempfile.TemporaryDirectory(prefix="metropt-training-") as temporary:
-        summary = run_experiments(
+        summary = train_and_evaluate(
             _model_inputs(observations),
             config,
             Path(temporary),
@@ -266,7 +267,8 @@ def score_batch() -> None:
     import mlflow
     from mlflow import MlflowClient
     from pyspark.sql import functions as F
-    from .data import SENSOR_COLUMNS, validate_observations
+
+    from anomaly_detection.data.schema import SENSOR_COLUMNS, validate_observations
 
     parser = _parser("Score one compressor with preserved temporal and alert context")
     parser.add_argument("--start", required=True)
