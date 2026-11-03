@@ -64,6 +64,31 @@ jobs:
           retention-days: 7
       - name: Build the deployable wheel
         run: uv build --wheel
+      - name: Check the deployment package excludes research tools
+        run: |
+          uv run --frozen python -I - <<'PY'
+          import importlib
+          import importlib.util
+          from pathlib import Path
+          import sys
+          import zipfile
+
+          wheel_path = next(Path('dist').glob('*.whl')).resolve()
+          with zipfile.ZipFile(wheel_path) as wheel:
+              files = wheel.namelist()
+              assert 'anomaly_detection/inference/predictor.py' in files
+              assert not any(name.startswith('research/') or name.endswith('.ipynb') for name in files)
+              assert not any(name.startswith('anomaly_detection/') and Path(name).stem in {'eda', 'plots', 'report', 'diagnostics'} for name in files)
+          source = Path('src').resolve()
+          sys.path[:] = [path for path in sys.path if Path(path).resolve() != source]
+          assert importlib.util.find_spec('anomaly_detection') is None
+          assert importlib.util.find_spec('research') is None
+          sys.path.insert(0, str(wheel_path))
+          importlib.import_module('anomaly_detection.training.pipeline')
+          jobs = importlib.import_module('anomaly_detection.mlops.jobs')
+          for command in ['load_data', 'train_model', 'score_batch', 'promote_model']:
+              assert callable(getattr(jobs, command))
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: metropt-wheel
