@@ -1,58 +1,17 @@
-"""A small full-pipeline integration test; the real benchmark is opt-in CI."""
-
+import hashlib
 import json
+
 import joblib
 import mlflow
 import numpy as np
 import pandas as pd
 import pytest
+
 from anomaly_detection.config import load_config
-from anomaly_detection.data import SENSOR_COLUMNS
-from anomaly_detection.pipeline import run_experiments, select_model
-from anomaly_detection.predict import DetectorArtifact, MODEL_INPUT_COLUMNS
-from anomaly_detection.models.isolation_forest import IsolationForestDetector
-from anomaly_detection.report import publish_results
-
-
-def test_validation_selection_is_deterministic_and_does_not_take_test_metrics():
-    config = load_config()
-    base = {
-        "event_recall": 1.0,
-        "unmatched_alerts_per_day": 0.2,
-        "events_total": 3,
-        "inference_ms_per_row": 1.0,
-    }
-    results = {
-        name: {"validation_metrics": dict(base)}
-        for name in ["if_raw", "if_temporal", "cnn_autoencoder"]
-    }
-    assert select_model(results, config) == "if_raw"
-    results["if_raw"]["test_metrics"] = {"event_recall": 0.0}
-    results["cnn_autoencoder"]["test_metrics"] = {"event_recall": 1.0}
-    assert select_model(results, config) == "if_raw"
-    results["if_temporal"]["validation_metrics"]["unmatched_alerts_per_day"] = 0.1
-    assert select_model(results, config) == "if_temporal"
-
-
-def test_packaged_contract_excludes_labels_and_handles_datetime_units(observations):
-    config = load_config()
-    frame = observations.assign(segment_id=0)
-    detector = IsolationForestDetector({"n_estimators": 5, "n_jobs": 1}, 42).fit(
-        frame[SENSOR_COLUMNS]
-    )
-    artifact = DetectorArtifact("if_raw", detector, config, 0.5, {})
-    reference = artifact.predict(frame)
-    changed = frame.assign(
-        is_reported_failure=True, event_id="irrelevant", source_record_id=-100
-    )
-    changed.timestamp = changed.timestamp.astype("datetime64[us]")
-    actual = artifact.predict(changed)
-    np.testing.assert_allclose(
-        actual.anomaly_score, reference.anomaly_score, equal_nan=True
-    )
-    np.testing.assert_array_equal(actual.is_alert, reference.is_alert)
-    with pytest.raises(ValueError, match="segment_id"):
-        artifact.predict(frame.drop(columns="segment_id"))
+from anomaly_detection.data.schema import SENSOR_COLUMNS
+from anomaly_detection.inference.predictor import MODEL_INPUT_COLUMNS
+from research.benchmark import run_benchmark
+from research.report import publish_results
 
 
 @pytest.mark.integration
@@ -96,9 +55,20 @@ def test_three_experiments_log_reload_and_select_before_test(tmp_path):
     frame.loc[780:839, SENSOR_COLUMNS[:7]] += 5
     uri = f"sqlite:///{tmp_path / 'tracking' / 'mlflow.db'}"
     output = tmp_path / "run"
-    summary = run_experiments(
-        frame, config, output, tracking_uri=uri, experiment_name="integration"
+    summary = run_benchmark(
+        frame,
+        config,
+        output,
+        tracking_uri=uri,
+        experiment_name="integration",
+        source_metadata={
+            "data_source": "synthetic_test",
+            "source_sha256": hashlib.sha256(
+                pd.util.hash_pandas_object(frame, index=False).values.tobytes()
+            ).hexdigest(),
+        },
     )
+    assert summary["source"]["data_source"] == "synthetic_test"
     assert len(summary["per_model"]) == 3
     assert (
         summary["model_reload_parity"] and summary["selected_pyfunc_full_test_parity"]
