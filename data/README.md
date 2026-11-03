@@ -1,7 +1,8 @@
-# Data files
+# Dataset files
 
-Run `uv run metropt download` to fetch the verified source and
-`uv run metropt prepare` for minute snapshots; both stay outside Git.
+Run `uv run python -m research download` to fetch the verified source and
+`uv run python -m research prepare` to create minute snapshots and EDA outputs.
+Downloaded and prepared readings stay outside Git.
 
 Source: Davari, Veloso, Ribeiro, and Gama (2021),
 [MetroPT-3](https://doi.org/10.24432/C5VW3R),
