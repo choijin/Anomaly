@@ -16,6 +16,8 @@ sync:
     - artifacts/**
     - mlruns/**
     - reports/**
+    - research/**
+    - tests/**
     - .venv/**
     - '**/__pycache__/**'
     - .pytest_cache/**
