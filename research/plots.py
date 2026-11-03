@@ -11,8 +11,12 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import precision_recall_curve
 
-from .data import CONTINUOUS_COLUMNS, DIGITAL_COLUMNS, SENSOR_COLUMNS
-from .features import sequence_endpoints
+from anomaly_detection.data.features import sequence_endpoints
+from anomaly_detection.data.schema import (
+    CONTINUOUS_COLUMNS,
+    DIGITAL_COLUMNS,
+    SENSOR_COLUMNS,
+)
 
 MODEL_LABELS = {
     "if_raw": "Isolation Forest: raw",
