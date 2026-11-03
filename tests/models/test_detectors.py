@@ -5,12 +5,16 @@ import pandas as pd
 import pytest
 import torch
 
-from anomaly_detection.data import CONTINUOUS_COLUMNS, DIGITAL_COLUMNS, SENSOR_COLUMNS
-from anomaly_detection.models.isolation_forest import IsolationForestDetector
+from anomaly_detection.data.schema import (
+    CONTINUOUS_COLUMNS,
+    DIGITAL_COLUMNS,
+    SENSOR_COLUMNS,
+)
 from anomaly_detection.models.cnn_autoencoder import (
     ConvolutionalAutoencoder,
     SequenceAutoencoder,
 )
+from anomaly_detection.models.isolation_forest import IsolationForestDetector
 
 
 def sensor_values(count=90, seed=4):
