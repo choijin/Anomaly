@@ -14,7 +14,7 @@ from torch import nn
 from torch.nn import functional
 from torch.utils.data import DataLoader, Dataset
 
-from ..data import CONTINUOUS_COLUMNS, SENSOR_COLUMNS
+from anomaly_detection.data.schema import CONTINUOUS_COLUMNS, SENSOR_COLUMNS
 
 
 class ConvolutionalAutoencoder(nn.Module):
